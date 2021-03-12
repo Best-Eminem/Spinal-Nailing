@@ -3,7 +3,10 @@
 # @Author  : Yike Cheng
 # @FileName: heatmap_image_generator.py
 # @Software: PyCharm
-@tf.function
+import tensorflow as tf
+import numpy as np
+
+
 def generate_heatmap_target(heatmap_size, landmarks, sigmas, scale=1.0, normalize=False, data_format='channels_first'):
     """
     Generates heatmap images for the given parameters.
@@ -50,3 +53,12 @@ def generate_heatmap_target(heatmap_size, landmarks, sigmas, scale=1.0, normaliz
     heatmap_or_zeros = tf.where((is_valid_reshaped + tf.zeros_like(heatmap)) > 0, heatmap, tf.zeros_like(heatmap))
 
     return heatmap_or_zeros
+num_landmarks = 26
+heatmap_sigma = 3.0
+sigmas_variables = tf.Variable([heatmap_sigma] * 26, name='sigmas', trainable=True)
+sigmas = sigmas_variables
+heatmap_size = (61, 338, 161)
+landmarks = ['nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', tf.array([ 58.569016,  91.04301 , 298.7844  ], dtype=tf.float32), array([58.83996, 89.57451, 275.3636], dtype=float32), array([59.071316, 85.364815, 248.5304], dtype=float32), array([59.88155, 81.28029, 218.6988], dtype=float32), array([60.812527, 77.72729 , 192.53966], dtype=float32), array([61.897564, 65.51127 , 166.84135], dtype=float32), array([63.70792, 59.27282, 134.9608], dtype=float32), array([64.93076, 58.55445, 104.3237], dtype=float32), array([65.117226, 66.66109 , 75.51525], dtype=float32), 'nan', 'nan']
+heatmap = generate_heatmap_target(heatmap_size,landmarks ,
+                                  sigmas, scale=1.0, normalize=False, data_format='channels_first')
+print(heatmap)
