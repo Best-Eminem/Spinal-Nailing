@@ -8,8 +8,11 @@ class SpineNet(nn.Module):
         super(SpineNet, self).__init__()
         assert down_ratio in [2, 4, 8, 16]
         channels = [3, 64, 64, 128, 256, 512]
+        #down_ratio = 4；l1 = 2
         self.l1 = int(np.log2(down_ratio))
+        #网络的第一部分，需要改造为3d
         self.base_network = resnet.resnet34(pretrained=pretrained)
+        #网络的第二部分，需要改造为3d
         self.dec_net = DecNet(heads, final_kernel, head_conv, channels[self.l1])
 
 

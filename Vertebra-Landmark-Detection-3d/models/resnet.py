@@ -42,7 +42,7 @@ class BasicBlock(nn.Module):
                  base_width=64, dilation=1, norm_layer=None):
         super(BasicBlock, self).__init__()
         if norm_layer is None:
-            norm_layer = nn.BatchNorm2d
+            norm_layer = nn.BatchNorm3d
         if groups != 1 or base_width != 64:
             raise ValueError('BasicBlock only supports groups=1 and base_width=64')
         if dilation > 1:
@@ -51,6 +51,7 @@ class BasicBlock(nn.Module):
         self.conv1 = conv3x3(inplanes, planes, stride)
         self.bn1 = norm_layer(planes)
         self.relu = nn.ReLU(inplace=True)
+
         self.conv2 = conv3x3(planes, planes)
         self.bn2 = norm_layer(planes)
         self.downsample = downsample
@@ -125,10 +126,11 @@ class ResNet(nn.Module):
                  norm_layer=None):
         super(ResNet, self).__init__()
         if norm_layer is None:
-            norm_layer = nn.BatchNorm2d
+            norm_layer = nn.BatchNorm3d
         self._norm_layer = norm_layer
 
         self.inplanes = 64
+        #间隔一位进行互相关计算
         self.dilation = 1
         if replace_stride_with_dilation is None:
             # each element in the tuple indicates if we should replace
@@ -139,11 +141,14 @@ class ResNet(nn.Module):
                              "or a 3-element tuple, got {}".format(replace_stride_with_dilation))
         self.groups = groups
         self.base_width = width_per_group
-        self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=7, stride=2, padding=3,
+        #输入通道数为3:rgb，输出通道数为 64
+        #kernel_size=(3, 7, 7),3表示一次处理的帧数，7和7表示卷积核形状
+        self.conv1 = nn.Conv3d(3, self.inplanes, kernel_size=(3, 7, 7), stride=2, padding=(3,3,3),
                                bias=False)
         self.bn1 = norm_layer(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
-        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+        self.maxpool = nn.MaxPool3d(kernel_size=3, stride=2, padding=1)
+
         self.layer1 = self._make_layer(block, 64, layers[0])
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2,
                                        dilate=replace_stride_with_dilation[0])
@@ -223,6 +228,7 @@ class ResNet(nn.Module):
 def _resnet(arch, block, layers, pretrained, progress, **kwargs):
     model = ResNet(block, layers, **kwargs)
     if pretrained:
+        #加载预训练模型参数
         state_dict = load_state_dict_from_url(model_urls[arch],
                                               progress=progress)
         model.load_state_dict(state_dict, strict=False)
@@ -240,15 +246,16 @@ def resnet18(pretrained=False, progress=True, **kwargs):
     return _resnet('resnet18', BasicBlock, [2, 2, 2, 2], pretrained, progress,
                    **kwargs)
 
-
+#本方法使用resnet34，需要下载预训练3d模型版本来替换
 def resnet34(pretrained=False, progress=True, **kwargs):
     r"""ResNet-34 model from
     `"Deep Residual Learning for Image Recognition" <https://arxiv.org/pdf/1512.03385.pdf>'_
 
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
-        progress (bool): If True, displays a progress bar of the download to stderr
+        progress (bool): If True, 显示下载进度条
     """
+    #[3,4,6,3]表示网络四个部分分别由多少个残差块构成
     return _resnet('resnet34', BasicBlock, [3, 4, 6, 3], pretrained, progress,
                    **kwargs)
 
