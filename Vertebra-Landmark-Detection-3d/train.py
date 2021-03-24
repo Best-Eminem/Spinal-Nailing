@@ -24,8 +24,10 @@ class Network(object):
         torch.manual_seed(317)
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         heads = {'hm': args.num_classes,
-                 'reg': 2*args.num_classes,
-                 'wh': 2*4,}
+                 'reg': 2*args.num_classes
+                 # 不需要计算corner offset
+                 #'wh': 2*4
+                 }
 
         self.model = spinal_net.SpineNet(heads=heads,
                                          pretrained=True,

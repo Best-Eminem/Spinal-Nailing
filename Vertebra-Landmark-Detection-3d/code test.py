@@ -3,6 +3,10 @@ import torch
 from matplotlib import pyplot as plt
 import numpy as np
 from scipy.io import loadmat
+
+from models.spinal_net import SpineNet
+
+
 def rearrange_pts(pts):
     boxes = []
     for k in range(0, len(pts), 4):
@@ -44,6 +48,14 @@ def load_gt_pts(annopath):
     print(pts.shape)
     return pts
 #load_gt_pts('dataPath/labels/train/sunhl-1th-02-Jan-2017-162 A AP.jpg.mat')
-h = np.array(range(9))
-h = h.reshape(1,3,3)
-print(h[0,:,:],h[0,:,:].shape)
+# h = np.array(range(9))
+# h = h.reshape(1,3,3)
+# print(h[0,:,:],h[0,:,:].shape)
+# import torch
+# x = torch.rand([1, 512, 1, 32, 16])
+# y = torch.rand([1, 512, 1, 32, 16])
+# print(torch.cat((x,y),1).shape)
+X = torch.rand((1, 3, 32, 1024, 512))
+heads = {'hm': 1,'reg': 2*1}
+model = SpineNet(heads=heads,pretrained=True,down_ratio=4,final_kernel=1,head_conv=256)
+print(model(X)['hm'].shape,model(X)['reg'].shape)
