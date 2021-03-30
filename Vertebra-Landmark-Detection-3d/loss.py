@@ -59,11 +59,12 @@ class LossAll(torch.nn.Module):
         super(LossAll, self).__init__()
         self.L_hm = FocalLoss()
         self.L_off = RegL1Loss()
-        self.L_wh =  RegL1Loss()
+        # self.L_wh =  RegL1Loss()
 
     def forward(self, pr_decs, gt_batch):
         hm_loss  = self.L_hm(pr_decs['hm'],  gt_batch['hm'])
-        wh_loss  = self.L_wh(pr_decs['wh'], gt_batch['reg_mask'], gt_batch['ind'], gt_batch['wh'])
+        # 不需要 corner offset
+        # wh_loss  = self.L_wh(pr_decs['wh'], gt_batch['reg_mask'], gt_batch['ind'], gt_batch['wh'])
         off_loss = self.L_off(pr_decs['reg'], gt_batch['reg_mask'], gt_batch['ind'], gt_batch['reg'])
-        loss_dec = hm_loss + off_loss + wh_loss
+        loss_dec = hm_loss + off_loss # + wh_loss
         return loss_dec

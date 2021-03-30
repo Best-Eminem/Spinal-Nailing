@@ -43,7 +43,7 @@ To adapt the code to your own dataset, you can modify the dataset.py, for exampl
 	
 ## Train the model
 ```ruby
-python main.py --data_dir dataPath --epochs 50 --batch_size 2 --dataset spinal --phase train
+python main.py --data_dir dataPath --epochs 50 --batch_size 1 --dataset spinal --phase train
 ```
 
 ## Test the model

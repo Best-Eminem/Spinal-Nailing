@@ -4,9 +4,10 @@ from matplotlib import pyplot as plt
 import numpy as np
 from scipy.io import loadmat
 
+from dataset import BaseDataset
 from models.spinal_net import SpineNet
 
-
+'''
 def rearrange_pts(pts):
     boxes = []
     for k in range(0, len(pts), 4):
@@ -55,7 +56,34 @@ def load_gt_pts(annopath):
 # x = torch.rand([1, 512, 1, 32, 16])
 # y = torch.rand([1, 512, 1, 32, 16])
 # print(torch.cat((x,y),1).shape)
-X = torch.rand((1, 3, 32, 1024, 512))
-heads = {'hm': 1,'reg': 2*1}
-model = SpineNet(heads=heads,pretrained=True,down_ratio=4,final_kernel=1,head_conv=256)
-print(model(X)['hm'].shape,model(X)['reg'].shape)
+
+# X = torch.rand((1, 3, 32, 1024, 512))
+# heads = {'hm': 1,'reg': 2*1}
+# model = SpineNet(heads=heads,pretrained=True,down_ratio=4,final_kernel=1,head_conv=256)
+# print(model(X)['hm'].shape,model(X)['reg'].shape)
+
+##测试读取txt
+def load_gt_pts(landmark_path):
+    # 取出 txt文件中的三位坐标点信息
+    pts = []
+    with open(landmark_path, "r") as f:
+        i = 1
+        for line in f.readlines():
+            line = line.strip('\n')  # 去掉列表中每一个元素的换行符
+            if line != '' and i >= 13:
+                _,__,x,y,z = line.split()
+                pts.append((x,y,z))
+            #
+            i+=1
+    # pts = rearrange_pts(pts)
+    return pts
+print(load_gt_pts('E://ZN-CT-nii//labels//train//1.txt'))
+'''
+##测试basedataset
+dataset = BaseDataset(data_dir='E:\\ZN-CT-nii',
+                                   phase='test',
+                                   input_h=512,
+                                   input_w=512,
+                                   input_s=350,
+                                   down_ratio=4)
+dataset.__getitem__(1)

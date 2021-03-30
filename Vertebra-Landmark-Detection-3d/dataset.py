@@ -4,6 +4,7 @@ import pre_proc
 import cv2
 from scipy.io import loadmat
 import numpy as np
+import SimpleITK as sitk
 
 # 重新排列64个点的顺序，按此规则每次重排4个点：上左，上右，下左，下右
 def rearrange_pts(pts):
@@ -28,55 +29,68 @@ def rearrange_pts(pts):
 
 
 class BaseDataset(data.Dataset):
-    def __init__(self, data_dir, phase, input_h=None, input_w=None, down_ratio=4):
+    def __init__(self, data_dir, phase, input_h=None, input_w=None, input_s=None, down_ratio=4):
         super(BaseDataset, self).__init__()
         self.data_dir = data_dir
         self.phase = phase
         self.input_h = input_h
         self.input_w = input_w
+        self.input_s = input_s
         self.down_ratio = down_ratio
         self.class_name = ['__background__', 'cell']
-        self.num_classes = 68
+        self.num_classes = 35 #原始表示68个特征点
         self.img_dir = os.path.join(data_dir, 'data', self.phase)
         self.img_ids = sorted(os.listdir(self.img_dir))
 
     def load_image(self, index):
-        image = cv2.imread(os.path.join(self.img_dir, self.img_ids[index]))
-        return image
+        itk_img = sitk.ReadImage(os.path.join(self.img_dir, self.img_ids[index-1]))
+        # image = sitk.GetArrayFromImage(itk_img)
+        # image = cv2.imread(os.path.join(self.img_dir, self.img_ids[index]))
+        return itk_img
 
-    def load_gt_pts(self, annopath):
-        # 取出 mat格式文件（表格快照）的数据部分，shape为（68，2）
-        pts = loadmat(annopath)['p2']   # num x 2 (x,y)
-        pts = rearrange_pts(pts)
+    def load_gt_pts(self, landmark_path):
+        # 取出 txt文件中的三位坐标点信息
+        pts = []
+        with open(landmark_path, "r") as f:
+            i = 1
+            for line in f.readlines():
+                line = line.strip('\n')  # 去掉列表中每一个元素的换行符
+                if line != '' and i >= 13:
+                    _, __, x, y, z = line.split()
+                    pts.append((x, y, z))
+                #
+                i += 1
+        # pts = rearrange_pts(pts)
         return pts
 
-    def load_annoFolder(self, img_id):
-        # eg.  dataPath/labels/train/xxxx.mat
-        return os.path.join(self.data_dir, 'labels', self.phase, img_id+'.mat')
+    def get_landmark_path(self, img_id):
+        # eg.  E://ZN-CT-nii//labels//train//xxxx.txt
+        return os.path.join(self.data_dir, 'labels', self.phase, img_id+'.txt')
 
-    def load_annotation(self, index):
+    def load_landmarks(self, index):
         img_id = self.img_ids[index]
-        annoFolder = self.load_annoFolder(img_id)
-        pts = self.load_gt_pts(annoFolder)
+        landmark_Folder_path = self.get_landmark_path(img_id)
+        pts = self.load_gt_pts(landmark_Folder_path)
         return pts
 
     def __getitem__(self, index):
-        img_id = self.img_ids[index]
+        img_id = self.img_ids[index-1]
         image = self.load_image(index)
         if self.phase == 'test':
             # images 为经过预处理后的tensor
-            images = pre_proc.processing_test(image=image, input_h=self.input_h, input_w=self.input_w)
+            images = pre_proc.processing_test(image=image, input_h=self.input_h, input_w=self.input_w, input_s=self.input_s)
             return {'images': images, 'img_id': img_id}
         else:
             aug_label = False
             if self.phase == 'train':
                 aug_label = True
-            # 返回shape为(68，2)的labels列表
-            pts = self.load_annotation(index)   # num_obj x h x w
+            # 返回shape为(35，3)的labels列表
+            pts = self.load_landmarks(index)   # num_obj x h x w
             out_image, pts_2 = pre_proc.processing_train(image=image,
                                                          pts=pts,
-                                                         image_h=self.input_h, #1024
+                                                         image_h=self.input_h, #512
                                                          image_w=self.input_w, #512
+                                                         input_s=self.input_s, #350
                                                          down_ratio=self.down_ratio,
                                                          aug_label=aug_label,
                                                          img_id=img_id)
@@ -85,8 +99,11 @@ class BaseDataset(data.Dataset):
                                                        pts_2=pts_2,
                                                        image_h=self.input_h//self.down_ratio,
                                                        image_w=self.input_w//self.down_ratio,
+                                                       input_s=self.input_s//self.down_ratio,
                                                        img_id=img_id)
             return data_dict
 
     def __len__(self):
         return len(self.img_ids)
+
+

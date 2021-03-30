@@ -34,8 +34,8 @@ class Network(object):
                                          down_ratio=args.down_ratio,
                                          final_kernel=1,
                                          head_conv=256)
-        self.num_classes = args.num_classes
-        # 解码器
+        self.num_classes = args.num_classes # 1
+        # *******************************解码器 待修改
         self.decoder = decoder.DecDecoder(K=args.K, conf_thresh=args.conf_thresh)
         self.dataset = {'spinal': BaseDataset}
 
@@ -78,6 +78,7 @@ class Network(object):
         return model
 
     def train_network(self, args):
+        # args.dataset = 'spinal'
         save_path = 'weights_'+args.dataset
         if not os.path.exists(save_path):
             os.mkdir(save_path)
@@ -93,6 +94,7 @@ class Network(object):
 
         self.model.to(self.device)
         # criterion为loss函数
+        # *******************************************待修改
         criterion = loss.LossAll()
         print('Setting up data...')
 
@@ -103,6 +105,7 @@ class Network(object):
                                    phase=x,
                                    input_h=args.input_h,
                                    input_w=args.input_w,
+                                   input_s=args.input_s,
                                    down_ratio=args.down_ratio)
                  for x in ['train', 'val']}
 
