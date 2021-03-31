@@ -56,32 +56,33 @@ def load_gt_pts(annopath):
 # x = torch.rand([1, 512, 1, 32, 16])
 # y = torch.rand([1, 512, 1, 32, 16])
 # print(torch.cat((x,y),1).shape)
-
-# X = torch.rand((1, 3, 32, 1024, 512))
+'''
+# **************************切片为350爆显存了**********************
+# X = torch.rand((1, 1, 64, 512, 512))
 # heads = {'hm': 1,'reg': 2*1}
 # model = SpineNet(heads=heads,pretrained=True,down_ratio=4,final_kernel=1,head_conv=256)
 # print(model(X)['hm'].shape,model(X)['reg'].shape)
 
 ##测试读取txt
-def load_gt_pts(landmark_path):
-    # 取出 txt文件中的三位坐标点信息
-    pts = []
-    with open(landmark_path, "r") as f:
-        i = 1
-        for line in f.readlines():
-            line = line.strip('\n')  # 去掉列表中每一个元素的换行符
-            if line != '' and i >= 13:
-                _,__,x,y,z = line.split()
-                pts.append((x,y,z))
-            #
-            i+=1
-    # pts = rearrange_pts(pts)
-    return pts
-print(load_gt_pts('E://ZN-CT-nii//labels//train//1.txt'))
-'''
+# def load_gt_pts(landmark_path):
+#     # 取出 txt文件中的三位坐标点信息
+#     pts = []
+#     with open(landmark_path, "r") as f:
+#         i = 1
+#         for line in f.readlines():
+#             line = line.strip('\n')  # 去掉列表中每一个元素的换行符
+#             if line != '' and i >= 13:
+#                 _,__,x,y,z = line.split()
+#                 pts.append((x,y,z))
+#             #
+#             i+=1
+#     # pts = rearrange_pts(pts)
+#     return pts
+# print(load_gt_pts('E://ZN-CT-nii//labels//train//1.txt'))
+
 ##测试basedataset
 dataset = BaseDataset(data_dir='E:\\ZN-CT-nii',
-                                   phase='test',
+                                   phase='train',
                                    input_h=512,
                                    input_w=512,
                                    input_s=350,

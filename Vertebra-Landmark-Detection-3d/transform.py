@@ -2,8 +2,29 @@
 import numpy as np
 from numpy import random
 import cv2
+import SimpleITK as sitk
 
-
+# simpleItk resize 三维ct图像
+def resize_image_itk(itkimage, newSize, resamplemethod=sitk.sitkNearestNeighbor):
+    resampler = sitk.ResampleImageFilter()
+    origin = itkimage.GetOrigin()
+    #print('origin: ', origin)
+    originSize = itkimage.GetSize()  # 原来的体素块尺寸
+    #print('originSize: ', originSize)
+    originSpacing = itkimage.GetSpacing()
+    #print('originSpacing: ',originSpacing)
+    newSize = np.array(newSize, float)
+    factor = originSize / newSize
+    newSpacing = originSpacing * factor
+    newSize = newSize.astype(np.int)  # spacing肯定不能是整数
+    resampler.SetReferenceImage(itkimage)   # 需要重新采样的目标图像
+    resampler.SetSize(newSize.tolist())
+    resampler.SetOutputSpacing(newSpacing.tolist())
+    resampler.SetTransform(sitk.Transform(3, sitk.sitkIdentity))
+    resampler.SetInterpolator(resamplemethod)
+    itkimgResampled = resampler.Execute(itkimage)  # 得到重新采样后的图像
+    #itkimgResampled = itkimgResampled.SetSpacing([1, 1, 1])
+    return itkimgResampled
 def rescale_pts(pts, down_ratio):
     return np.asarray(pts, np.float32)/float(down_ratio)
 
@@ -72,7 +93,7 @@ class PhotometricDistort(object):
     def __init__(self):
         self.pd = RandomContrast() #将图像中所有数随机乘上一个数
         self.rb = RandomBrightness()#将图像中所有数随机加上一个数
-        self.rln = RandomLightingNoise()# 改变图像中的通道顺序
+        # self.rln = RandomLightingNoise()# 改变图像中的通道顺序,ct只有1个通道，因此不考虑
 
     def __call__(self, img, pts):
         img, pts = self.rb(img, pts)
@@ -81,7 +102,7 @@ class PhotometricDistort(object):
         else:
             distort = self.pd
         img, pts = distort(img, pts)
-        img, pts = self.rln(img, pts)
+        # img, pts = self.rln(img, pts)
         return img, pts
 
 
@@ -170,12 +191,13 @@ class RandomMirror_h(object):
 
 
 class Resize(object):
-    def __init__(self, h, w):
-        self.dsize = (w,h)
+    def __init__(self, s, h, w):
+        self.dsize = (w,h,s)
 
     def __call__(self, img, pts):
-        h,w,c = img.shape
-        pts[:, 0] = pts[:, 0]/w*self.dsize[0]
+        s,h,w = img.shape
+        pts[:, 0] = pts[:, 0]/s*self.dsize[0]
         pts[:, 1] = pts[:, 1]/h*self.dsize[1]
-        img = cv2.resize(img, dsize=self.dsize)
-        return img, np.asarray(pts)
+        pts[:, 2] = pts[:, 2]/w * self.dsize[2]
+        img = resize_image_itk(sitk.GetImageFromArray(img), newSize=self.dsize, resamplemethod=sitk.sitkLinear)
+        return sitk.GetArrayFromImage(img), np.asarray(pts)

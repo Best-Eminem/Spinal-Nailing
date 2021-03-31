@@ -43,6 +43,7 @@ class BaseDataset(data.Dataset):
         self.img_ids = sorted(os.listdir(self.img_dir))
 
     def load_image(self, index):
+        # index记得改回来，不要-1
         itk_img = sitk.ReadImage(os.path.join(self.img_dir, self.img_ids[index-1]))
         # image = sitk.GetArrayFromImage(itk_img)
         # image = cv2.imread(os.path.join(self.img_dir, self.img_ids[index]))
@@ -57,7 +58,7 @@ class BaseDataset(data.Dataset):
                 line = line.strip('\n')  # 去掉列表中每一个元素的换行符
                 if line != '' and i >= 13:
                     _, __, x, y, z = line.split()
-                    pts.append((x, y, z))
+                    pts.append((z, y, x))
                 #
                 i += 1
         # pts = rearrange_pts(pts)
@@ -65,17 +66,20 @@ class BaseDataset(data.Dataset):
 
     def get_landmark_path(self, img_id):
         # eg.  E://ZN-CT-nii//labels//train//xxxx.txt
-        return os.path.join(self.data_dir, 'labels', self.phase, img_id+'.txt')
+        return os.path.join(self.data_dir, 'labels', self.phase, str(img_id)+'.txt')
 
     def load_landmarks(self, index):
-        img_id = self.img_ids[index]
-        landmark_Folder_path = self.get_landmark_path(img_id)
+        # index记得改回来，不要-1
+        img_id = self.img_ids[index - 1]
+        # index记得改回来，不要-1
+        landmark_Folder_path = self.get_landmark_path(index)
         pts = self.load_gt_pts(landmark_Folder_path)
         return pts
 
     def __getitem__(self, index):
+        # index记得改回来，不要-1
         img_id = self.img_ids[index-1]
-        image = self.load_image(index)
+        image = self.load_image(index) #image是 itk image格式，不是np格式
         if self.phase == 'test':
             # images 为经过预处理后的tensor
             images = pre_proc.processing_test(image=image, input_h=self.input_h, input_w=self.input_w, input_s=self.input_s)
@@ -84,23 +88,23 @@ class BaseDataset(data.Dataset):
             aug_label = False
             if self.phase == 'train':
                 aug_label = True
-            # 返回shape为(35，3)的labels列表
+            # 返回shape为(35，3)的labels列表,排列方式为(z,y,x)
             pts = self.load_landmarks(index)   # num_obj x h x w
             out_image, pts_2 = pre_proc.processing_train(image=image,
                                                          pts=pts,
                                                          image_h=self.input_h, #512
                                                          image_w=self.input_w, #512
-                                                         input_s=self.input_s, #350
+                                                         image_s=self.input_s, #350
                                                          down_ratio=self.down_ratio,
                                                          aug_label=aug_label,
                                                          img_id=img_id)
-
             data_dict = pre_proc.generate_ground_truth(image=out_image,
                                                        pts_2=pts_2,
                                                        image_h=self.input_h//self.down_ratio,
                                                        image_w=self.input_w//self.down_ratio,
                                                        input_s=self.input_s//self.down_ratio,
                                                        img_id=img_id)
+            # return (out_image, pts_2)
             return data_dict
 
     def __len__(self):
