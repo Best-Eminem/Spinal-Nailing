@@ -62,7 +62,7 @@ def load_gt_pts(annopath):
 # heads = {'hm': 1,'reg': 2*1}
 # model = SpineNet(heads=heads,pretrained=True,down_ratio=4,final_kernel=1,head_conv=256)
 # print(model(X)['hm'].shape,model(X)['reg'].shape)
-
+# torch.Size([1, 1, 16, 128, 128]) torch.Size([1, 2, 16, 128, 128])
 ##测试读取txt
 # def load_gt_pts(landmark_path):
 #     # 取出 txt文件中的三位坐标点信息
@@ -81,10 +81,10 @@ def load_gt_pts(annopath):
 # print(load_gt_pts('E://ZN-CT-nii//labels//train//1.txt'))
 
 ##测试basedataset
-dataset = BaseDataset(data_dir='E:\\ZN-CT-nii',
-                                   phase='train',
-                                   input_h=512,
-                                   input_w=512,
-                                   input_s=350,
-                                   down_ratio=4)
-dataset.__getitem__(1)
+# dataset = BaseDataset(data_dir='E:\\ZN-CT-nii',
+#                                    phase='train',
+#                                    input_h=512,
+#                                    input_w=512,
+#                                    input_s=350,
+#                                    down_ratio=4)
+# dataset.__getitem__(1)

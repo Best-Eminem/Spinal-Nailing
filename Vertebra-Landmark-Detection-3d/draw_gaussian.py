@@ -33,13 +33,23 @@ def gaussian2D(shape, sigma=1):
     h[h < np.finfo(h.dtype).eps * h.max()] = 0
     return h
 
+def gaussian3D(shape, sigma=1):
+    s, m, n = [(ss - 1.) / 2. for ss in shape]
+    #生成两个array
+    z, y, x = np.ogrid[-s:s+1,-m:m+1,-n:n+1]
+
+    h = np.exp(-(z * z + x * x + y * y) / (2 * sigma * sigma))
+    #让h中极小的值取0
+    h[h < np.finfo(h.dtype).eps * h.max()] = 0
+    return h
+
 def draw_umich_gaussian(heatmap, center, radius, k=1):
     diameter = 2 * radius + 1
-    gaussian = gaussian2D((diameter, diameter), sigma=diameter / 6)
+    gaussian = gaussian3D((diameter, diameter, diameter), sigma=diameter / 6)
 
     x, y = int(center[0]), int(center[1])
 
-    height, width = heatmap.shape[0:2]
+    slice, height, width = heatmap.shape[0:]
 
     left, right = min(x, radius), min(width - x, radius + 1)
     top, bottom = min(y, radius), min(height - y, radius + 1)

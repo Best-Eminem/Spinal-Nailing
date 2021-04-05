@@ -35,7 +35,7 @@ class Network(object):
                                          final_kernel=1,
                                          head_conv=256)
         self.num_classes = args.num_classes # 1
-        # *******************************解码器 待修改
+        # *******************************解码器 待修改,后面没用上？
         self.decoder = decoder.DecDecoder(K=args.K, conf_thresh=args.conf_thresh)
         self.dataset = {'spinal': BaseDataset}
 

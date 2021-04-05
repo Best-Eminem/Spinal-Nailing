@@ -1,7 +1,8 @@
 import SimpleITK as sitk
 import cv2
 import torch
-from draw_gaussian import *
+# from draw_gaussian import *
+from draw_3dgaussian import *
 import transform
 import math
 from transform import resize_image_itk
@@ -72,55 +73,65 @@ def rearrange_pts(pts):
 
 def generate_ground_truth(image,
                           pts_2,
+                          image_s,
                           image_h,
                           image_w,
                           img_id):
-    hm = np.zeros((1, image_h, image_w), dtype=np.float32)
+    hm = np.zeros((image_s, image_h, image_w), dtype=np.float32)
     # print(hm.shape)
     # plt.imshow(hm[0, :, :])
     # plt.show()
-    wh = np.zeros((17, 2*4), dtype=np.float32)
-    reg = np.zeros((17, 2), dtype=np.float32)
-    ind = np.zeros((17), dtype=np.int64)
-    reg_mask = np.zeros((17), dtype=np.uint8)
+    ####################################### 待修改
+    # wh = np.zeros((35, 2*4), dtype=np.float32)
+    reg = np.zeros((15, 3), dtype=np.float32)  #reg表示ct_int和ct的差值
+    ind = np.zeros((15), dtype=np.int64) # 每个landmark坐标值与ct长宽高形成约束？
+    reg_mask = np.zeros((15), dtype=np.uint8)
 
-    if pts_2[:,0].max()>image_w:
-        print('w is big', pts_2[:,0].max())
+    if pts_2[:,0].max()>image_s:
+        print('s is big', pts_2[:,0].max())
     if pts_2[:,1].max()>image_h:
         print('h is big', pts_2[:,1].max())
+    if pts_2[:,2].max()>image_w:
+        print('w is big', pts_2[:,2].max())
 
-    if pts_2.shape[0]!=68:
-        print('ATTENTION!! image {} pts does not equal to 68!!! '.format(img_id))
+    if pts_2.shape[0]!=15:
+        print('ATTENTION!! image {} pts does not equal to 15!!! '.format(img_id))
 
-    for k in range(17):
-        pts = pts_2[4*k:4*k+4,:]
-        # 上下两点间距和左右两点间距
-        bbox_h = np.mean([np.sqrt(np.sum((pts[0,:]-pts[2,:])**2)),
-                          np.sqrt(np.sum((pts[1,:]-pts[3,:])**2))])
-        bbox_w = np.mean([np.sqrt(np.sum((pts[0,:]-pts[1,:])**2)),
-                          np.sqrt(np.sum((pts[2,:]-pts[3,:])**2))])
-        # 骨锥中心点
-        cen_x, cen_y = np.mean(pts, axis=0)
-        ct = np.asarray([cen_x, cen_y], dtype=np.float32)
-        ct_int = ct.astype(np.int32)
-        radius = gaussian_radius((math.ceil(bbox_h), math.ceil(bbox_w)))
+    for k in range(5):
+        pts = pts_2[7*k:7*k+7,:]
+        # 计算同一侧椎弓更上两点在x和y轴上的间距
+        distance_y = min([np.sqrt((pts[3,1]-pts[4,1])**2),
+                          np.sqrt((pts[5,1]-pts[6,1])**2)])
+        distance_x = min([np.sqrt((pts[3,2]-pts[4,2])**2),
+                          np.sqrt((pts[5,2]-pts[6,2])**2)])
+        # 椎弓更的landmark
+        ct_landmark = []
+        cen_x1, cen_y1, cen_z1 = np.mean(pts[3:5], axis=0)
+        cen_x2, cen_y2, cen_z2 = np.mean(pts[5:7], axis=0)
+        ct_landmark.append(pts[1])
+        ct_landmark.append([cen_x1, cen_y1, cen_z1])
+        ct_landmark.append([cen_x2, cen_y2, cen_z2])
+        ct_landmark = np.asarray(ct_landmark, dtype=np.float32)
+        ct_landmark_int = ct_landmark.astype(np.int32)
+        radius = gaussian_radius((math.ceil(distance_y), math.ceil(distance_x)))
         radius = max(0, int(radius))
         #生成脊锥中心点的热图
-        #draw_umich_gaussian(hm[0,:,:], ct_int, radius=radius)
-        hm[0,:,:] = draw_umich_gaussian(hm[0,:,:], ct_int, radius=radius)
-        # plt.imshow(hm[0,:,:])
-        # plt.show()
-        ind[k] = ct_int[1] * image_w + ct_int[0]
-        reg[k] = ct - ct_int
-        reg_mask[k] = 1
-        for i in range(4):
-            wh[k,2*i:2*i+2] = ct-pts[i,:]
+        #draw_umich_gaussian(hm[0,:,:], ct_landmark_int, radius=radius)
+        for i in range(3):
+            hm = draw_umich_gaussian(hm, ct_landmark_int[i], radius=radius)
+            # 每个landmark坐标值与ct长宽高形成约束？
+            ind[3*k+i] = ct_landmark_int[i][2] * image_w + ct_landmark_int[i][1] * image_h + ct_landmark_int[i][0]
+            reg[3*k+i] = ct_landmark[i] - ct_landmark_int[i]
+            reg_mask[3*k+i] = 1
+        # for i in range(4):
+        #     wh[k,2*i:2*i+2] = ct_landmark-pts[i,:]
+        hm.reshape([1,1,hm.shape])
 
     ret = {'input': image,
            'hm': hm,
            'ind': ind,
            'reg': reg,
-           'wh': wh,
+           # 'wh': wh,
            'reg_mask': reg_mask,
            }
     return ret
