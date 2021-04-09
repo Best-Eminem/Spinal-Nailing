@@ -3,7 +3,7 @@ import torch
 from matplotlib import pyplot as plt
 import numpy as np
 from scipy.io import loadmat
-
+import SimpleITK as sitk
 from dataset import BaseDataset
 from models.spinal_net import SpineNet
 
@@ -87,4 +87,9 @@ def load_gt_pts(annopath):
 #                                    input_w=512,
 #                                    input_s=350,
 #                                    down_ratio=4)
-# dataset.__getitem__(1)
+# data = dataset.__getitem__(0)
+# print(data)
+
+# h = sitk.ReadImage('E://sunhl-1th-01-Mar-2017-312 D AP.jpg')
+# h = sitk.GetArrayFromImage(h)
+# print(h.shape)

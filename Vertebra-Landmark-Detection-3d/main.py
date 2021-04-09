@@ -6,7 +6,7 @@ import eval
 def parse_args():
     parser = argparse.ArgumentParser(description='CenterNet Modification Implementation')
     parser.add_argument('--num_epoch', type=int, default=50, help='Number of epochs')
-    parser.add_argument('--batch_size', type=int, default=2, help='Number of epochs')
+    parser.add_argument('--batch_size', type=int, default=1, help='Number of epochs')
     parser.add_argument('--num_workers', type=int, default=4, help='Number of workers')
     parser.add_argument('--init_lr', type=float, default=1.25e-4, help='Init learning rate')
     parser.add_argument('--down_ratio', type=int, default=4, help='down ratio')
@@ -17,7 +17,7 @@ def parse_args():
     parser.add_argument('--conf_thresh', type=float, default=0.2, help='confidence threshold')
     parser.add_argument('--seg_thresh', type=float, default=0.5, help='confidence threshold')
     parser.add_argument('--num_classes', type=int, default=1, help='number of classes')
-    parser.add_argument('--ngpus', type=int, default=0, help='number of gpus')
+    parser.add_argument('--ngpus', type=int, default=1, help='number of gpus')
     parser.add_argument('--resume', type=str, default='model_last.pth', help='weights to be resumed')
     parser.add_argument('--data_dir', type=str, default='E:\\ZN-CT-nii', help='data directory')
     parser.add_argument('--phase', type=str, default='train', help='data directory')

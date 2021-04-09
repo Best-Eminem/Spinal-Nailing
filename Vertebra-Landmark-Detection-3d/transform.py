@@ -116,6 +116,7 @@ class Expand(object):
             return img, pts
         h,w,c = img.shape
         ratio = random.uniform(1,self.max_scale)
+        z1 = random.uniform(0, s*ratio-s)
         y1 = random.uniform(0, h*ratio-h)
         x1 = random.uniform(0, w*ratio-w)
         if np.max(pts[:,0])+int(x1)>w-1 or np.max(pts[:,1])+int(y1)>h-1:  # keep all the pts
@@ -192,12 +193,13 @@ class RandomMirror_h(object):
 
 class Resize(object):
     def __init__(self, s, h, w):
-        self.dsize = (w,h,s)
+        self.pts_dsize = (s,h,w)
+        self.img_dsize = (w,h,s)
 
     def __call__(self, img, pts):
         s,h,w = img.shape
-        pts[:, 0] = pts[:, 0]/s*self.dsize[0]
-        pts[:, 1] = pts[:, 1]/h*self.dsize[1]
-        pts[:, 2] = pts[:, 2]/w * self.dsize[2]
-        img = resize_image_itk(sitk.GetImageFromArray(img), newSize=self.dsize, resamplemethod=sitk.sitkLinear)
-        return sitk.GetArrayFromImage(img), np.asarray(pts)
+        pts[:, 0] = pts[:, 0]/s*self.pts_dsize[0]
+        pts[:, 1] = pts[:, 1]/h*self.pts_dsize[1]
+        pts[:, 2] = pts[:, 2]/w*self.pts_dsize[2]
+        img = resize_image_itk(sitk.GetImageFromArray(img), newSize=self.img_dsize, resamplemethod=sitk.sitkLinear)
+        return sitk.GetArrayFromImage(img), np.round(pts)

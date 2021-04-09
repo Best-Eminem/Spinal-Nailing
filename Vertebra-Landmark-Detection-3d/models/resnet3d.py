@@ -14,8 +14,8 @@ __all__ = [
     'resnet152', 'resnet200'
 ]
 model_urls = {
-    'resnet_34': 'E:\\spine-Nailing\\MedicalNet_pytorch_files\\pretrain\\resnet_34.pth',
-    'resnet_34_23dataset': 'E:\\spine-Nailing\\MedicalNet_pytorch_files\\pretrain\\resnet_34_23dataset.pth'
+    'resnet_34': 'E:\\ZN-CT-nii\\MedicalNet_pytorch_files\\pretrain\\resnet_34.pth',
+    'resnet_34_23dataset': 'E:\\ZN-CT-nii\\MedicalNet_pytorch_files\\pretrain\\resnet_34_23dataset.pth'
 }
 
 def conv3x3x3(in_planes, out_planes, stride=1, dilation=1):

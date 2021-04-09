@@ -1,12 +1,13 @@
 import os
 import torch.utils.data as data
 import pre_proc
+import joblib
 import cv2
 from scipy.io import loadmat
 import numpy as np
 import SimpleITK as sitk
 from xyz2irc_irc2xyz import xyz2irc
-
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 # 重新排列64个点的顺序，按此规则每次重排4个点：上左，上右，下左，下右
 def rearrange_pts(pts):
     boxes = []
@@ -66,7 +67,7 @@ class BaseDataset(data.Dataset):
 
     def get_landmark_path(self, img_id):
         # eg.  E://ZN-CT-nii//labels//train//xxxx.txt
-        return os.path.join(self.data_dir, 'labels', self.phase, str(img_id)+'.txt')
+        return os.path.join(self.data_dir, 'labels', self.phase, str(img_id+1)+'.txt')
 
     def load_landmarks(self, index):
         img_id = self.img_ids[index]
@@ -74,40 +75,54 @@ class BaseDataset(data.Dataset):
         pts = self.load_gt_pts(landmark_Folder_path)
         return pts
 
-    def __getitem__(self, index):
+    def origin_getitem(self,index):
         # index记得改回来，不要-1,检查一下这里取到的img_id是正确的吗？
-        img_id = self.img_ids[index-1]
-        image = self.load_image(index-1) #image是 itk image格式，不是np格式
+        img_id = self.img_ids[index]
+        image = self.load_image(index)  # image是 itk image格式，不是np格式
         if self.phase == 'test':
             # images 为经过预处理后的tensor
-            images = pre_proc.processing_test(image=image, input_h=self.input_h, input_w=self.input_w, input_s=self.input_s)
+            images = pre_proc.processing_test(image=image, input_h=self.input_h, input_w=self.input_w,
+                                              input_s=self.input_s)
             return {'images': images, 'img_id': img_id}
         else:
             aug_label = False
             if self.phase == 'train':
                 aug_label = True
             # 返回shape为(35，3)的labels列表,排列方式为(z,y,x)
-            pts = self.load_landmarks(index-1)   # x,y,z
-            #欧式坐标转化为体素坐标
-            pts_irc = [] #['index', 'row', 'col']
-            for i in range(len(pts)):
-                pts_irc.append(xyz2irc(image,pts[i]))
-
+            pts = self.load_landmarks(index)  # x,y,z
+            # 欧式坐标转化为体素坐标
+            # pts_irc = []  # ['index', 'row', 'col']
+            # for i in range(len(pts)):
+            #     pts_irc.append(xyz2irc(image, pts[i]))
+            # out_image为numpy格式，pts_2为irc坐标（z,y,x）
             out_image, pts_2 = pre_proc.processing_train(image=image,
                                                          pts=pts,
                                                          image_s=self.input_s,  # 350
-                                                         image_h=self.input_h,  #512
-                                                         image_w=self.input_w,  #512
+                                                         image_h=self.input_h,  # 512
+                                                         image_w=self.input_w,  # 512
                                                          down_ratio=self.down_ratio,
                                                          aug_label=aug_label,
                                                          img_id=img_id)
+            out_image = np.reshape(out_image, (1, self.input_s, self.input_h, self.input_w))
             data_dict = pre_proc.generate_ground_truth(image=out_image,
                                                        pts_2=pts_2,
-                                                       image_s=self.input_s//self.down_ratio,
-                                                       image_h=self.input_h//self.down_ratio,
-                                                       image_w=self.input_w//self.down_ratio,
+                                                       image_s=self.input_s // self.down_ratio,
+                                                       image_h=self.input_h // self.down_ratio,
+                                                       image_w=self.input_w // self.down_ratio,
                                                        img_id=img_id)
             # return (out_image, pts_2)
+            return data_dict
+
+    def __getitem__(self, index):
+        # index记得改回来，不要-1,检查一下这里取到的img_id是正确的吗？
+        img_id = self.img_ids[index]
+        img_num = img_id.split('.')[0]
+        if self.phase == 'test':
+            # images 为经过预处理后的tensor
+            images = pre_proc.processing_test(image=self.load_image(index), input_h=self.input_h, input_w=self.input_w, input_s=self.input_s)
+            return {'images': images, 'img_id': img_id}
+        else:
+            data_dict = joblib.load('E:\\ZN-CT-nii\\groundtruth\\'+ img_num+'.gt')
             return data_dict
 
     def __len__(self):

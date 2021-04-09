@@ -64,37 +64,39 @@ def draw_umich_gaussian(heatmap, center, radius, k=1):
 # #print(hm)
 # hm[0,0,:,:,:] = draw_umich_gaussian(hm[0,0,:,:,:], ct_landmark_int, radius=radius)
 
-xyzvalues = gaussian3D([10,10,10])
-#xyzvalues = np.random.choice(range(0,10), size=(10,10,10))#数组大小:10*10*10, 数值范围0~9.
-mycolormap = plt.get_cmap('plasma')
-xyzminvalue=xyzvalues.min()
-xyzmaxvalue=xyzvalues.max()#根据三维数组中的最大和最小值来定义每个数值的相对强度,范围0~1.0
-relativevalue=np.zeros((10,10,10))#色温强度矩阵大小与xyz测试数组大小一致
-for i in range(0,relativevalue.shape[0]):
-    for j in range(0,relativevalue.shape[1]):
-        for k in range(0,relativevalue.shape[2]):
-            relativevalue[i][j][k]=round(xyzvalues[i][j][k]/xyzmaxvalue,4)#round函数取小数点后1位
-colorsvalues = np.empty(xyzvalues.shape, dtype=object)
-alpha=0.5#透明度,视显示效果决定
-for i in range(0,relativevalue.shape[0]):
-    for j in range(0,relativevalue.shape[1]):
-        for k in range(0,relativevalue.shape[2]):
-            tempc = mycolormap(relativevalue[i][j][k])#tempc为tuple变量,存储当前数值的颜色值(R,G,B,Alpha)
-            colorreal = (tempc[0],tempc[1],tempc[2],alpha)#tuple为不可变数据类型,所以替换自定义alpha值时需要重新定义
-            colorsvalues[i][j][k] = colorreal#最终每个数值所对应的颜色
-fig = plt.figure(figsize=(14, 9))# Make a figure and axes with dimensions as desired.#需要注意的是,3Dplot不支持设置xyz的比例尺相同,这就带来了一些麻烦:#保存图片时长宽比例受限,这个问题以后再做说明解决
-ax = fig.gca(projection='3d')
-#ax.voxels(xyzvalues, facecolors=colorsvalues, edgecolor='k',shade=False,)
-ax.voxels(xyzvalues[3:7,3:7,3:7], facecolors=colorsvalues[3:7,3:7,3:7], edgecolor=None,shade=False,)#关键函数voxels:用以无缝绘制每个像素格
-ax.set_xlabel('X')
-ax.set_ylabel('Y')
-ax.set_zlabel('Z')
-ax.set_title('3D Gaussian')
-#新建区域ax1,用以额外绘制colorbar#ref:https://matplotlib.org/examples/api/colorbar_only.html#位置为figure的百分比,从figure 0%的位置开始绘制, 高是figure的80%
-left, bottom, width, height = 0.1, 0.1, 0.05, 0.8#获得绘制的句柄
-ax1 = fig.add_axes([left, bottom, width, height])# Set the colormap and norm to correspond to the data for which# the colorbar will be used.
-cmap=mpl.cm.plasma #colormap与绘制voxel图保持一致
-norm = mpl.colors.Normalize(vmin=xyzminvalue, vmax=xyzmaxvalue) #色温colorbar的数值范围可选择实际xyz数组中的数值范围(其实不应该从0开始)
-cb1 = mpl.colorbar.ColorbarBase(ax1, cmap=cmap,norm=norm,orientation='vertical')
-cb1.set_label('Units')
-plt.show()
+#以下代码为可视化gaussian
+
+# xyzvalues = gaussian3D([10,10,10])
+# #xyzvalues = np.random.choice(range(0,10), size=(10,10,10))#数组大小:10*10*10, 数值范围0~9.
+# mycolormap = plt.get_cmap('plasma')
+# xyzminvalue=xyzvalues.min()
+# xyzmaxvalue=xyzvalues.max()#根据三维数组中的最大和最小值来定义每个数值的相对强度,范围0~1.0
+# relativevalue=np.zeros((10,10,10))#色温强度矩阵大小与xyz测试数组大小一致
+# for i in range(0,relativevalue.shape[0]):
+#     for j in range(0,relativevalue.shape[1]):
+#         for k in range(0,relativevalue.shape[2]):
+#             relativevalue[i][j][k]=round(xyzvalues[i][j][k]/xyzmaxvalue,4)#round函数取小数点后1位
+# colorsvalues = np.empty(xyzvalues.shape, dtype=object)
+# alpha=0.5#透明度,视显示效果决定
+# for i in range(0,relativevalue.shape[0]):
+#     for j in range(0,relativevalue.shape[1]):
+#         for k in range(0,relativevalue.shape[2]):
+#             tempc = mycolormap(relativevalue[i][j][k])#tempc为tuple变量,存储当前数值的颜色值(R,G,B,Alpha)
+#             colorreal = (tempc[0],tempc[1],tempc[2],alpha)#tuple为不可变数据类型,所以替换自定义alpha值时需要重新定义
+#             colorsvalues[i][j][k] = colorreal#最终每个数值所对应的颜色
+# fig = plt.figure(figsize=(14, 9))# Make a figure and axes with dimensions as desired.#需要注意的是,3Dplot不支持设置xyz的比例尺相同,这就带来了一些麻烦:#保存图片时长宽比例受限,这个问题以后再做说明解决
+# ax = fig.gca(projection='3d')
+# #ax.voxels(xyzvalues, facecolors=colorsvalues, edgecolor='k',shade=False,)
+# ax.voxels(xyzvalues[3:7,3:7,3:7], facecolors=colorsvalues[3:7,3:7,3:7], edgecolor=None,shade=False,)#关键函数voxels:用以无缝绘制每个像素格
+# ax.set_xlabel('X')
+# ax.set_ylabel('Y')
+# ax.set_zlabel('Z')
+# ax.set_title('3D Gaussian')
+# #新建区域ax1,用以额外绘制colorbar#ref:https://matplotlib.org/examples/api/colorbar_only.html#位置为figure的百分比,从figure 0%的位置开始绘制, 高是figure的80%
+# left, bottom, width, height = 0.1, 0.1, 0.05, 0.8#获得绘制的句柄
+# ax1 = fig.add_axes([left, bottom, width, height])# Set the colormap and norm to correspond to the data for which# the colorbar will be used.
+# cmap=mpl.cm.plasma #colormap与绘制voxel图保持一致
+# norm = mpl.colors.Normalize(vmin=xyzminvalue, vmax=xyzmaxvalue) #色温colorbar的数值范围可选择实际xyz数组中的数值范围(其实不应该从0开始)
+# cb1 = mpl.colorbar.ColorbarBase(ax1, cmap=cmap,norm=norm,orientation='vertical')
+# cb1.set_label('Units')
+# plt.show()
