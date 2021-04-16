@@ -11,12 +11,11 @@ from xyz2irc_irc2xyz import xyz2irc
 
 def processing_test(image, input_h, input_w, input_s):
     # print(image.shape)
-    image = resize_image_itk(image, (512, 512, 350),resamplemethod=sitk.sitkLinear)
+    image = resize_image_itk(image, (input_w, input_h, input_s),resamplemethod=sitk.sitkLinear)
     image = sitk.GetArrayFromImage(image)
-    out_image = image.astype(np.float32) / 255.
-    out_image = out_image - 0.5
+    out_image = image / np.max(abs(image))
+    out_image = np.asarray(out_image, np.float32)
 
-    # 转置，将通道数放在前 （1024，512,3）->（3，1024，512）
     out_image = out_image.reshape(1, 1, input_s,input_h, input_w)
     out_image = torch.from_numpy(out_image)
     return out_image
@@ -74,10 +73,12 @@ def rearrange_pts(pts):
 
 def generate_ground_truth(image,
                           pts_2,
+                          points_num,
                           image_s,
                           image_h,
                           image_w,
-                          img_id):
+                          img_id,
+                          full):
 
     hm = np.zeros((image_s, image_h, image_w), dtype=np.float32)
     # print(hm.shape)
@@ -85,9 +86,9 @@ def generate_ground_truth(image,
     # plt.show()
     ####################################### 待修改
     # wh = np.zeros((35, 2*4), dtype=np.float32)
-    reg = np.zeros((15, 3), dtype=np.float32)  #reg表示ct_int和ct的差值
-    ind = np.zeros((15), dtype=np.int64) # 每个landmark坐标值与ct长宽高形成约束？
-    reg_mask = np.zeros((15), dtype=np.uint8)
+    reg = np.zeros((points_num, 3), dtype=np.float32)  #reg表示ct_int和ct的差值
+    ind = np.zeros((points_num), dtype=np.int64) # 每个landmark坐标值与ct长宽高形成约束？
+    reg_mask = np.zeros((points_num), dtype=np.uint8)
 
     if pts_2[:,0].max()>image_s:
         print('s is big', pts_2[:,0].max())
@@ -97,40 +98,57 @@ def generate_ground_truth(image,
         print('w is big', pts_2[:,2].max())
 
     if pts_2.shape[0]!=35:
-        print('ATTENTION!! image {} pts does not equal to 15!!! '.format(img_id))
+        print('ATTENTION!! image {} pts does not equal to 35!!! '.format(img_id))
 
-    for k in range(5):
-        #pts_2为irc坐标
-        pts = pts_2[7*k:7*k+7,:]
-        # 计算同一侧椎弓更上两点在x和y轴上的间距
-        zhuigonggeng_left_landmarks_distance = np.sqrt(np.sum((pts[3,1:]-pts[4,1:])**2))
+    #for k in range(5):
+    #pts_2为irc坐标
+    # pts = pts_2[7*k:7*k+7,:]
+    pts = pts_2
+    # 计算同一侧椎弓更上两点在x和y轴上的间距
+    ct_landmark = []
+    min_diameter = 99
+    if full == False:
+        zhuigonggeng_left_landmarks_distance = np.sqrt(np.sum((pts[3,:]-pts[4,:])**2))
             # min([np.sqrt((pts[3,1]-pts[4,1])**2),
             #               np.sqrt((pts[5,1]-pts[6,1])**2)])
-        zhuigonggeng_right_landmarks_distance = np.sqrt(np.sum((pts[5,1:]-pts[6,1:])**2))
+        zhuigonggeng_right_landmarks_distance = np.sqrt(np.sum((pts[5,:]-pts[6,:])**2))
             # min([np.sqrt((pts[3,2]-pts[4,2])**2),
             #               np.sqrt((pts[5,2]-pts[6,2])**2)])
-        # 椎弓更的landmark
-        ct_landmark = []
         cen_z1, cen_y1, cen_x1 = np.round(np.mean(pts[3:5], axis=0))
         cen_z2, cen_y2, cen_x2 = np.round(np.mean(pts[5:7], axis=0))
         ct_landmark.append(pts[1])
         ct_landmark.append([cen_z1, cen_y1, cen_x1])
         ct_landmark.append([cen_z2, cen_y2, cen_x2])
-        ct_landmark = np.round(np.asarray(ct_landmark, dtype=np.float32))
-        ct_landmark_int = ct_landmark.astype(np.int32)
-        #radius = gaussian_radius((math.ceil(distance_y), math.ceil(distance_x)))
-        diameter = min(zhuigonggeng_left_landmarks_distance,zhuigonggeng_right_landmarks_distance)
-        radius = max(0, int(diameter))//2
-        #生成脊锥中心点的热图
-        #draw_umich_gaussian(hm[0,:,:], ct_landmark_int, radius=radius)
-        for i in range(3):
-            hm = draw_umich_gaussian(hm, ct_landmark_int[i], radius=radius)
-            # 每个landmark坐标值与ct长宽高形成约束？
-            ind[3*k+i] = ct_landmark_int[i][2] * image_w + ct_landmark_int[i][1] * image_h + ct_landmark_int[i][0]
-            reg[3*k+i] = ct_landmark[i] - ct_landmark_int[i]
-            reg_mask[3*k+i] = 1
-        # for i in range(4):
-        #     wh[k,2*i:2*i+2] = ct_landmark-pts[i,:]
+        min_diameter = min(zhuigonggeng_left_landmarks_distance, zhuigonggeng_right_landmarks_distance)
+    else:
+        for i in range(5):
+            zhuigonggeng_left_landmarks_distance = np.sqrt(np.sum((pts[7*i+3, :] - pts[7*i+4, :]) ** 2))
+            # min([np.sqrt((pts[3,1]-pts[4,1])**2),
+            #               np.sqrt((pts[5,1]-pts[6,1])**2)])
+            zhuigonggeng_right_landmarks_distance = np.sqrt(np.sum((pts[7*i+5, :] - pts[7*i+6, :]) ** 2))
+            cen_z1, cen_y1, cen_x1 = np.round(np.mean(pts[7*i+3:7*i+5], axis=0))
+            cen_z2, cen_y2, cen_x2 = np.round(np.mean(pts[7*i+5:7*i+7], axis=0))
+            ct_landmark.append(pts[7*i+1])
+            ct_landmark.append([cen_z1, cen_y1, cen_x1])
+            ct_landmark.append([cen_z2, cen_y2, cen_x2])
+            diameter = min(zhuigonggeng_left_landmarks_distance, zhuigonggeng_right_landmarks_distance)
+            min_diameter = min(min_diameter,diameter)
+    # 椎弓更的landmark
+
+    ct_landmark = np.round(np.asarray(ct_landmark, dtype=np.float32))
+    ct_landmark_int = ct_landmark.astype(np.int32)
+    #radius = gaussian_radius((math.ceil(distance_y), math.ceil(distance_x)))
+    radius = max(0, int(min_diameter))//2
+    #生成脊锥中心点的热图
+    #draw_umich_gaussian(hm[0,:,:], ct_landmark_int, radius=radius)
+    for i in range(points_num):
+        hm = draw_umich_gaussian(hm, ct_landmark_int[i], radius=radius)
+        # 每个landmark坐标值与ct长宽高形成约束？
+        ind[i] = ct_landmark_int[i][2] * image_w + ct_landmark_int[i][1] * image_h + ct_landmark_int[i][0]
+        reg[i] = ct_landmark[i] - ct_landmark_int[i]
+        reg_mask[i] = 1
+    # for i in range(4):
+    #     wh[k,2*i:2*i+2] = ct_landmark-pts[i,:]
     hm.reshape([1,1,image_s, image_h, image_w])
 
     ret = {'input': image,
@@ -139,6 +157,7 @@ def generate_ground_truth(image,
            'reg': reg,
            # 'wh': wh,
            'reg_mask': reg_mask,
+           'landmarks':ct_landmark_int
            }
     return ret
 
@@ -152,7 +171,7 @@ def generate_ground_truth(image,
 #     return np.asarray(pts_new, np.float32)
 
 
-def processing_train(image, pts, image_h, image_w, image_s, down_ratio, aug_label, img_id):
+def processing_train(image, pts, points_num,image_h, image_w, image_s, down_ratio, aug_label, img_id,full):
     # filter pts ----------------------------------------------------
     # h,w,c = image.shape
     # pts = filter_pts(pts, w, h)
@@ -164,27 +183,68 @@ def processing_train(image, pts, image_h, image_w, image_s, down_ratio, aug_labe
         pts_irc.append(xyz2irc(image, pts[i]))
     pts_irc = np.asarray(pts_irc)
     image_array = sitk.GetArrayFromImage(image)
-    data_aug = {'train': transform.Compose([transform.ConvertImgFloat(),  #转为float32格式
+    data_series = []
+    data_aug = {'train': transform.Compose([transform.ConvertImgFloat(),  # 转为float32格式
                                             # transform.PhotometricDistort(), #对比度，噪声，亮度
-                                            #transform.Expand(max_scale=1.5, mean=(0, 0, 0)),
-                                            #transform.RandomMirror_w(),
-                                            transform.Resize(s=image_s,h=image_h, w=image_w)
-                                            ]),# resize
+                                            # transform.Expand(max_scale=1.5, mean=(0, 0, 0)),
+                                            # transform.RandomMirror_w(),
+                                            transform.Resize(s=image_s, h=image_h, w=image_w) #Resize了点坐标和img
+                                            ]),  # resize
                 'val': transform.Compose([transform.ConvertImgFloat(),
-                                          transform.Resize(s=image_s,h=image_h, w=image_w)
+                                          transform.Resize(s=image_s, h=image_h, w=image_w)
                                           ])}
-    if aug_label:
-        out_image, pts_2 = data_aug['train'](image_array.copy(), pts_irc)
+    if full == False:
+        for i in range(5):
+            #获取每一段脊椎的上下两点的z坐标，生成截取坐标
+            top_z = pts_irc[7*i,0] + 5
+            bottom_z = pts_irc[7*i+2,0] - 5
+            # bottom_z = pts_irc[:,0].min()
+            # top_z = pts_irc[:, 0].max()
+            # 所有点的z轴坐标要改变
+            pts_irc[7*i:7*(i+1),0] = pts_irc[7*i:7*(i+1),0] - bottom_z
+            # 截取包含5段脊椎的部分
+            image_array_section = image_array[bottom_z:top_z,:,:]
+            if aug_label:
+                out_image, pts_2 = data_aug['train'](image_array_section.copy(), pts_irc[7*i:7*(i+1)])
+            else:
+                out_image, pts_2 = data_aug['val'](image_array_section.copy(), pts_irc[7*i:7*(i+1)])
+
+            min = np.min(out_image)
+            max = np.max(out_image)
+            #out_image = np.clip(out_image, a_min=0., a_max=255.)
+            #不需要调换顺序
+            out_image = out_image / np.max(abs(out_image))
+            out_image = np.asarray(out_image, np.float32)
+            out_image = np.reshape(out_image, (1, image_s, image_h, image_w))
+            #out_image = np.transpose(out_image / 255. - 0.5, (0,1,2))
+            # pts = rearrange_pts(pts)
+
+            pts2 = transform.rescale_pts(pts_2, down_ratio=down_ratio)
+            data_series.append((out_image,pts2))
     else:
-        out_image, pts_2 = data_aug['val'](image_array.copy(), pts_irc)
-    min = np.min(out_image)
-    max = np.max(out_image)
-    #out_image = np.clip(out_image, a_min=0., a_max=255.)
-    #不需要调换顺序
-    out_image = out_image / np.max(abs(out_image))
-    #out_image = np.transpose(out_image / 255. - 0.5, (0,1,2))
-    # pts = rearrange_pts(pts)
+        bottom_z = pts_irc[:,0].min() - 5
+        top_z = pts_irc[:, 0].max() + 5
+        # 所有点的z轴坐标要改变
+        pts_irc[:, 0] = pts_irc[:, 0] - bottom_z
+        # 截取包含5段脊椎的部分
+        image_array_section = image_array[bottom_z:top_z, :, :]
+        if aug_label:
+            out_image, pts_2 = data_aug['train'](image_array_section.copy(), pts_irc)
+        else:
+            out_image, pts_2 = data_aug['val'](image_array_section.copy(), pts_irc)
 
-    pts2 = transform.rescale_pts(pts_2, down_ratio=down_ratio)
+        min = np.min(out_image)
+        max = np.max(out_image)
+        # out_image = np.clip(out_image, a_min=0., a_max=255.)
+        # 不需要调换顺序
+        out_image = out_image / np.max(abs(out_image))
+        out_image = np.asarray(out_image, np.float32)
+        out_image = np.reshape(out_image, (1, image_s, image_h, image_w))
+        # out_image = np.transpose(out_image / 255. - 0.5, (0,1,2))
+        # pts = rearrange_pts(pts)
 
-    return np.asarray(out_image, np.float32), pts2
+        pts2 = transform.rescale_pts(pts_2, down_ratio=down_ratio)
+        data_series.append((out_image, pts2))
+
+    #return np.asarray(out_image, np.float32), pts2
+    return data_series

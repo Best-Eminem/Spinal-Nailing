@@ -7,6 +7,7 @@ import decoder
 import loss
 from dataset import BaseDataset
 from matplotlib import pyplot as plt
+from torchviz import make_dot
 
 def collater(data):
     out_data_dict = {}
@@ -23,10 +24,11 @@ class Network(object):
     def __init__(self, args):
         torch.manual_seed(317)
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        #heads表示的是最后一层输出的通道数
         heads = {'hm': args.num_classes,
-                 'reg': 2*args.num_classes
+                 'reg': 3*args.num_classes
                  # 不需要计算corner offset
-                 #'wh': 2*4
+                 #'wh': 3*4
                  }
 
         self.model = spinal_net.SpineNet(heads=heads,
@@ -36,7 +38,7 @@ class Network(object):
                                          head_conv=256)
         self.num_classes = args.num_classes # 1
         # *******************************解码器 待修改,后面没用上？
-        self.decoder = decoder.DecDecoder(K=args.K, conf_thresh=args.conf_thresh)
+        self.decoder = decoder.DecDecoder(K=args.K, conf_thresh=args.conf_thresh) #K为特征点的最大个数
         self.dataset = {'spinal': BaseDataset}
 
 
@@ -135,6 +137,7 @@ class Network(object):
                                         data_loader=dsets_loader['train'],
                                         criterion=criterion)
             train_loss.append(epoch_loss)
+            #调整学习率
             scheduler.step(epoch)
 
             epoch_loss = self.run_epoch(phase='val',
@@ -168,11 +171,15 @@ class Network(object):
                 self.optimizer.zero_grad()
                 with torch.enable_grad():
                     pr_decs = self.model(data_dict['input'])
+                    # graph = make_dot(pr_decs['hm']) #画计算图
+
+                    # graph.view('model_structure.pdf', '.\\imgs\\')
                     # tp = data_dict['hm'][0,:,:].cpu()
                     # plt.imshow(tp[0,:,:])
                     # plt.show()
                     loss = criterion(pr_decs, data_dict)
                     loss.backward()
+                    #loss.backward(torch.tensor(100.))
                     self.optimizer.step()
             else:
                 with torch.no_grad():

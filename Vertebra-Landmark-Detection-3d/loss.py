@@ -18,8 +18,9 @@ class RegL1Loss(nn.Module):
         return feat
 
     def _tranpose_and_gather_feat(self, feat, ind):
-        feat = feat.permute(0, 2, 3, 1).contiguous()
-        feat = feat.view(feat.size(0), -1, feat.size(3))
+        # permute将tensor中dim换位
+        feat = feat.permute(0, 2, 3, 4, 1).contiguous()
+        feat = feat.view(feat.size(0), -1, feat.size(4))
         feat = self._gather_feat(feat, ind)
         return feat
 
@@ -35,8 +36,8 @@ class FocalLoss(nn.Module):
     super(FocalLoss, self).__init__()
 
   def forward(self, pred, gt):
-      pos_inds = gt.eq(1).float()
-      neg_inds = gt.lt(1).float()
+      pos_inds = gt.eq(1).int()
+      neg_inds = gt.lt(1).int()
       neg_weights = torch.pow(1 - gt, 4)
 
       loss = 0
@@ -44,14 +45,11 @@ class FocalLoss(nn.Module):
       pos_loss = torch.log(pred) * torch.pow(1 - pred, 2) * pos_inds
       neg_loss = torch.log(1 - pred) * torch.pow(pred, 2) * neg_weights * neg_inds
 
-      num_pos  = pos_inds.float().sum()
+      num_pos  = pos_inds.sum() + neg_inds.sum()
       pos_loss = pos_loss.sum()
       neg_loss = neg_loss.sum()
 
-      if num_pos == 0:
-        loss = loss - neg_loss
-      else:
-        loss = loss - (pos_loss + neg_loss) / num_pos
+      loss = loss - (pos_loss + neg_loss) / num_pos
       return loss
 
 class LossAll(torch.nn.Module):
@@ -63,8 +61,9 @@ class LossAll(torch.nn.Module):
 
     def forward(self, pr_decs, gt_batch):
         hm_loss  = self.L_hm(pr_decs['hm'],  gt_batch['hm'])
+        #hm_loss = self.L_hm(pr_decs, gt_batch)
         # 不需要 corner offset
         # wh_loss  = self.L_wh(pr_decs['wh'], gt_batch['reg_mask'], gt_batch['ind'], gt_batch['wh'])
         off_loss = self.L_off(pr_decs['reg'], gt_batch['reg_mask'], gt_batch['ind'], gt_batch['reg'])
-        loss_dec = hm_loss + off_loss # + wh_loss
+        loss_dec = hm_loss + off_loss
         return loss_dec

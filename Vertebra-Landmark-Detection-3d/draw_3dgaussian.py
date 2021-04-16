@@ -25,7 +25,7 @@ def gaussian_radius(det_size, min_overlap=0.7):
     r3  = (b3 + sq3) / 2
     return min(r1, r2, r3)
 def gaussian3D(shape, sigma=1):
-    sigma = shape[0]/6
+    #sigma = shape[0]/6
     s, m, n = [(ss - 1.) / 2. for ss in shape]
     #生成三个array
     z, y, x = np.ogrid[-s:s+1,-m:m+1,-n:n+1]
@@ -37,9 +37,9 @@ def gaussian3D(shape, sigma=1):
 
 def draw_umich_gaussian(heatmap, center, radius, k=1):
     diameter = 2 * radius + 1 #直径
-    gaussian = gaussian3D((diameter, diameter, diameter), sigma=diameter / 6) #
+    gaussian = gaussian3D((diameter, diameter, diameter), sigma=diameter / 12) #
 
-    x, y, z = int(center[0]), int(center[1]),int(center[2])
+    z, y, x = int(center[0]), int(center[1]),int(center[2])
 
     slice, height, width = heatmap.shape[0:3]
 

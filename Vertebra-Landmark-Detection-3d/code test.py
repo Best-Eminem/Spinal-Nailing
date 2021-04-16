@@ -1,4 +1,5 @@
 import cv2
+import joblib
 import torch
 from matplotlib import pyplot as plt
 import numpy as np
@@ -93,3 +94,5 @@ def load_gt_pts(annopath):
 # h = sitk.ReadImage('E://sunhl-1th-01-Mar-2017-312 D AP.jpg')
 # h = sitk.GetArrayFromImage(h)
 # print(h.shape)
+data_dict = joblib.load('E:\\ZN-CT-nii\\groundtruth\\'+ '6'+'.gt')
+print(1)

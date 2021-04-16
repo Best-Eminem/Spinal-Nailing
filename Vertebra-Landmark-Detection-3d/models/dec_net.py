@@ -33,7 +33,7 @@ class DecNet(nn.Module):
                 fc[-1].bias.data.fill_(-2.19)
             else:
                 self.fill_fc_weights(fc)
-            # 重载方法 每次调用相当于self.head = fc，类似于一个字典，head是key，fc是value
+            # 重载方法 每次调用相当于dict[head] = fc，类似于一个字典，head是key，fc是value
             self.__setattr__(head, fc)
 
 

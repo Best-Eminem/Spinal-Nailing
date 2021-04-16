@@ -37,14 +37,17 @@ def draw_landmarks_regress_test(pts0, ori_image_regress, ori_image_points):
         # cv2.circle(ori_image, (int(pt[4]), int(pt[5])), 5, color_255, -1,1)
         # cv2.circle(ori_image, (int(pt[6]), int(pt[7])), 5, color_255, -1,1)
         # cv2.circle(ori_image, (int(pt[8]), int(pt[9])), 5, color_255, -1,1)
-        cv2.arrowedLine(ori_image_regress, (int(pt[0]), int(pt[1])), (int(pt[2]), int(pt[3])), color_255, 2, 1,
-                        tipLength=0.2)
-        cv2.arrowedLine(ori_image_regress, (int(pt[0]), int(pt[1])), (int(pt[4]), int(pt[5])), color_255, 2, 1,
-                        tipLength=0.2)
-        cv2.arrowedLine(ori_image_regress, (int(pt[0]), int(pt[1])), (int(pt[6]), int(pt[7])), color_255, 2, 1,
-                        tipLength=0.2)
-        cv2.arrowedLine(ori_image_regress, (int(pt[0]), int(pt[1])), (int(pt[8]), int(pt[9])), color_255, 2, 1,
-                        tipLength=0.2)
+
+        #根据corner offset画线，不需要
+        # cv2.arrowedLine(ori_image_regress, (int(pt[0]), int(pt[1])), (int(pt[2]), int(pt[3])), color_255, 2, 1,
+        #                 tipLength=0.2)
+        # cv2.arrowedLine(ori_image_regress, (int(pt[0]), int(pt[1])), (int(pt[4]), int(pt[5])), color_255, 2, 1,
+        #                 tipLength=0.2)
+        # cv2.arrowedLine(ori_image_regress, (int(pt[0]), int(pt[1])), (int(pt[6]), int(pt[7])), color_255, 2, 1,
+        #                 tipLength=0.2)
+        # cv2.arrowedLine(ori_image_regress, (int(pt[0]), int(pt[1])), (int(pt[8]), int(pt[9])), color_255, 2, 1,
+        #                 tipLength=0.2)
+
         cv2.putText(ori_image_regress, '{}'.format(i + 1),
                     (int(pt[4] + 10), int(pt[5] + 10)),
                     cv2.FONT_HERSHEY_DUPLEX,
@@ -52,11 +55,12 @@ def draw_landmarks_regress_test(pts0, ori_image_regress, ori_image_points):
                     color_255,  # (255,255,255),
                     1,
                     1)
+        #画四个角的点，不需要
         # cv2.circle(ori_image, (int(pt[0]), int(pt[1])), 6, (255,255,255), -1,1)
-        cv2.circle(ori_image_points, (int(pt[2]), int(pt[3])), 5, color_255, -1, 1)
-        cv2.circle(ori_image_points, (int(pt[4]), int(pt[5])), 5, color_255, -1, 1)
-        cv2.circle(ori_image_points, (int(pt[6]), int(pt[7])), 5, color_255, -1, 1)
-        cv2.circle(ori_image_points, (int(pt[8]), int(pt[9])), 5, color_255, -1, 1)
+        # cv2.circle(ori_image_points, (int(pt[2]), int(pt[3])), 5, color_255, -1, 1)
+        # cv2.circle(ori_image_points, (int(pt[4]), int(pt[5])), 5, color_255, -1, 1)
+        # cv2.circle(ori_image_points, (int(pt[6]), int(pt[7])), 5, color_255, -1, 1)
+        # cv2.circle(ori_image_points, (int(pt[8]), int(pt[9])), 5, color_255, -1, 1)
     return ori_image_regress, ori_image_points
 
 
