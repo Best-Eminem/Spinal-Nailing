@@ -106,8 +106,9 @@ class BaseDataset(data.Dataset):
                                                          full = full
                                                          )
             data_dict_series = []
-            for out_image,pts_2 in data_series:
+            for out_image,intense_image,pts_2 in data_series:
                 data_dict = pre_proc.generate_ground_truth(image=out_image,
+                                                           intense_image= intense_image,
                                                            points_num=points_num,
                                                            pts_2=pts_2,
                                                            image_s=self.input_s // self.down_ratio,
@@ -129,7 +130,9 @@ class BaseDataset(data.Dataset):
             #images = pre_proc.processing_test(image=self.load_image(index), input_h=self.input_h, input_w=self.input_w, input_s=self.input_s)
             images = data_dict['input'].reshape((1, 1, self.input_s,self.input_h, self.input_w))
             images = torch.from_numpy(images)
-            return {'images': images, 'img_id': img_id,'hm':data_dict['hm'],'reg_mask':data_dict['reg_mask'],'ind':data_dict['ind'],'reg':data_dict['reg']}
+            return {'images': images, 'img_id': img_id,'hm':data_dict['hm'],
+                    'reg_mask':data_dict['reg_mask'],'ind':data_dict['ind'],'reg':data_dict['reg'],
+                    'landmarks':data_dict['landmarks']}
         else:
             data_dict = joblib.load('E:\\ZN-CT-nii\\groundtruth\\'+ img_id)
             return data_dict

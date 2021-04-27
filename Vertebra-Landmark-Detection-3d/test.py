@@ -93,6 +93,11 @@ class Network(object):
             images = data_dict['images'][0]
             img_id = data_dict['img_id'][0]
             hm_gt = data_dict['hm']
+            pts_gt = data_dict['landmarks'].cpu().numpy()[0]
+
+            pts_gt *= 4
+            pts_gt = pts_gt.tolist()
+            pts_gt.sort(key=lambda x: (x[0], x[1]))
 
             images = images.to('cuda')
             print('processing {}/{} image ... {}'.format(cnt, len(data_loader), img_id))
@@ -108,11 +113,16 @@ class Network(object):
             pts2 = self.decoder.ctdet_decode(hm, reg)   # 17, 11
             pts0 = pts2.copy()
             pts0[:self.points_num,:3] *= args.down_ratio
-
+            pts_predict = pts0[:self.points_num,:3].tolist()
             print('totol pts num is {}'.format(len(pts2)))
             images = images.to('cpu')
             images = images.numpy()
-            draw.draw_points(images,np.asarray(np.round(pts0[:self.points_num,:3]),'int32'))
+            pts_predict.sort(key = lambda x:(x[0],x[1]))
+            pts_predict = np.asarray(pts_predict,'float32')
+            pts_predict = np.asarray(np.round(pts_predict), 'int32')
+            print(pts_gt)
+            print(pts_predict)
+            draw.draw_points(images,pts_predict)
             # for i in range(3):
             #     img = images[0][0]
             #     pts = np.asarray(np.round(pts0),np.int32)

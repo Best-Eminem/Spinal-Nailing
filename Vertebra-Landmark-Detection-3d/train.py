@@ -153,7 +153,7 @@ class Network(object):
             # 保存模型
             if len(val_loss)>1:
                 if val_loss[-1]<np.min(val_loss[:-1]):
-                    self.save_model(os.path.join(save_path, 'model_last.pth'), epoch, self.model)
+                    self.save_model(os.path.join(save_path, 'model_last_origin.pth'), epoch, self.model)
 
     def run_epoch(self, phase, data_loader, criterion):
         if phase == 'train':

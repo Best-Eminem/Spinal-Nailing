@@ -15,7 +15,9 @@ __all__ = [
 ]
 model_urls = {
     'resnet_34': 'E:\\ZN-CT-nii\\MedicalNet_pytorch_files\\pretrain\\resnet_34.pth',
-    'resnet_34_23dataset': 'E:\\ZN-CT-nii\\MedicalNet_pytorch_files\\pretrain\\resnet_34_23dataset.pth'
+    'resnet_34_23dataset': 'E:\\ZN-CT-nii\\MedicalNet_pytorch_files\\pretrain\\resnet_34_23dataset.pth',
+    'resnet_18': 'E:\\ZN-CT-nii\\MedicalNet_pytorch_files\\pretrain\\resnet_18.pth',
+    'resnet_10': 'E:\\ZN-CT-nii\\MedicalNet_pytorch_files\\pretrain\\resnet_10.pth',
 }
 
 def conv3x3x3(in_planes, out_planes, stride=1, dilation=1):
@@ -141,7 +143,8 @@ class ResNet(nn.Module):
         self.bn1 = nn.BatchNorm3d(64)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool3d(kernel_size=(3, 3, 3), stride=2, padding=1)
-        self.layer1 = self._make_layer(block, 64, layers[0], shortcut_type)
+        self.layer1 = self._make_layer(
+            block, 64, layers[0], shortcut_type)
         self.layer2 = self._make_layer(
             block, 128, layers[1], shortcut_type, stride=2)
         self.layer3 = self._make_layer(
@@ -244,14 +247,16 @@ def _resnet(arch, block, layers, pretrained, **kwargs):
 def resnet10(**kwargs):
     """Constructs a ResNet-18 model.
     """
-    model = ResNet(BasicBlock, [1, 1, 1, 1], **kwargs)
+    #model = ResNet(BasicBlock, [1, 1, 1, 1], **kwargs)
+    model = _resnet("resnet_10", BasicBlock, [1, 1, 1, 1], **kwargs)
     return model
 
 
 def resnet18(**kwargs):
     """Constructs a ResNet-18 model.
     """
-    model = ResNet(BasicBlock, [2, 2, 2, 2], **kwargs)
+    model = _resnet("resnet_18", BasicBlock, [2, 2, 2, 2], **kwargs)
+    #model = ResNet(BasicBlock, [2, 2, 2, 2], **kwargs)
     return model
 
 

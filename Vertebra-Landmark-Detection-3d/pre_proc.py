@@ -7,6 +7,7 @@ import transform
 import math
 from transform import resize_image_itk
 from xyz2irc_irc2xyz import xyz2irc
+import torch.nn as nn
 
 
 def processing_test(image, input_h, input_w, input_s):
@@ -72,6 +73,7 @@ def rearrange_pts(pts):
 
 
 def generate_ground_truth(image,
+                          intense_image,
                           pts_2,
                           points_num,
                           image_s,
@@ -149,15 +151,23 @@ def generate_ground_truth(image,
         reg_mask[i] = 1
     # for i in range(4):
     #     wh[k,2*i:2*i+2] = ct_landmark-pts[i,:]
-    hm.reshape([1,1,image_s, image_h, image_w])
-
-    ret = {'input': image,
+    hm = hm.reshape([1,1,image_s, image_h, image_w])
+    hm = torch.from_numpy(hm)
+    max_pool_downsize = nn.MaxPool3d(kernel_size=3,stride=2,padding=1)
+    hm = max_pool_downsize(hm).numpy()
+    hm = hm.reshape(hm.shape[2:])
+    image = torch.from_numpy(image)
+    image = max_pool_downsize(image).numpy()
+    intense_image = torch.from_numpy(intense_image)
+    intense_image = max_pool_downsize(intense_image).numpy()
+    ret = {'input': intense_image,
+           'origin_image':image,
            'hm': hm,
            'ind': ind,
            'reg': reg,
            # 'wh': wh,
            'reg_mask': reg_mask,
-           'landmarks':ct_landmark_int
+           'landmarks':ct_landmark_int//2
            }
     return ret
 
@@ -226,8 +236,11 @@ def processing_train(image, pts, points_num,image_h, image_w, image_s, down_rati
         top_z = pts_irc[:, 0].max() + 5
         # 所有点的z轴坐标要改变
         pts_irc[:, 0] = pts_irc[:, 0] - bottom_z
+        # 所有点的x，y轴坐标要减小
+        pts_irc[:, 1] = pts_irc[:, 1] - 55
+        pts_irc[:, 2] = pts_irc[:, 2] - 55
         # 截取包含5段脊椎的部分
-        image_array_section = image_array[bottom_z:top_z, :, :]
+        image_array_section = image_array[bottom_z:top_z,55:455,55:455]
         if aug_label:
             out_image, pts_2 = data_aug['train'](image_array_section.copy(), pts_irc)
         else:
@@ -239,12 +252,16 @@ def processing_train(image, pts, points_num,image_h, image_w, image_s, down_rati
         # 不需要调换顺序
         out_image = out_image / np.max(abs(out_image))
         out_image = np.asarray(out_image, np.float32)
+        intense_image = out_image.copy()
+        intense_image[intense_image >= 0.1] += 0.2
+        intense_image[intense_image > 1] = 1
+        intense_image = np.reshape(intense_image, (1, image_s, image_h, image_w))
         out_image = np.reshape(out_image, (1, image_s, image_h, image_w))
         # out_image = np.transpose(out_image / 255. - 0.5, (0,1,2))
         # pts = rearrange_pts(pts)
 
         pts2 = transform.rescale_pts(pts_2, down_ratio=down_ratio)
-        data_series.append((out_image, pts2))
+        data_series.append((out_image,intense_image, pts2))
 
     #return np.asarray(out_image, np.float32), pts2
     return data_series

@@ -9,27 +9,6 @@ from dataset import BaseDataset
 from models.spinal_net import SpineNet
 
 '''
-def rearrange_pts(pts):
-    boxes = []
-    for k in range(0, len(pts), 4):
-        pts_4 = pts[k:k+4,:]
-        #返回排序后的下标
-        x_inds = np.argsort(pts_4[:, 0])
-        pt_l = np.asarray(pts_4[x_inds[:2], :])
-        pt_r = np.asarray(pts_4[x_inds[2:], :])
-        y_inds_l = np.argsort(pt_l[:,1])
-        y_inds_r = np.argsort(pt_r[:,1])
-        tl = pt_l[y_inds_l[0], :]
-        bl = pt_l[y_inds_l[1], :]
-        tr = pt_r[y_inds_r[0], :]
-        br = pt_r[y_inds_r[1], :]
-        # boxes.append([tl, tr, bl, br])
-        boxes.append(tl)
-        boxes.append(tr)
-        boxes.append(bl)
-        boxes.append(br)
-    return np.asarray(boxes, np.float32)
-
 def processing_test(image, input_h, input_w):
 
     image = cv2.resize(image, (input_w, input_h))
@@ -53,11 +32,12 @@ def load_gt_pts(annopath):
 # h = np.array(range(9))
 # h = h.reshape(1,3,3)
 # print(h[0,:,:],h[0,:,:].shape)
+
+'''
 # import torch
 # x = torch.rand([1, 512, 1, 32, 16])
 # y = torch.rand([1, 512, 1, 32, 16])
-# print(torch.cat((x,y),1).shape)
-'''
+# print(torch.cat((x,y),0).shape)
 # **************************切片为350爆显存了**********************
 # X = torch.rand((1, 1, 64, 512, 512))
 # heads = {'hm': 1,'reg': 2*1}
@@ -94,5 +74,5 @@ def load_gt_pts(annopath):
 # h = sitk.ReadImage('E://sunhl-1th-01-Mar-2017-312 D AP.jpg')
 # h = sitk.GetArrayFromImage(h)
 # print(h.shape)
-data_dict = joblib.load('E:\\ZN-CT-nii\\groundtruth\\'+ '6'+'.gt')
-print(1)
+# data_dict = joblib.load('E:\\ZN-CT-nii\\groundtruth\\'+ '6'+'.gt')
+# print(1)

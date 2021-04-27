@@ -41,4 +41,9 @@ class CombinationModule(nn.Module):
         # C = torch.cat((A, B), 0)
         # 按维数1拼接（横着拼）
         # C = torch.cat((A, B), 1)
+        #按第1维合并
+        #import torch
+# x = torch.rand([1, 512, 1, 32, 16])
+# y = torch.rand([1, 512, 1, 32, 16])
+# print(torch.cat((x,y),0).shape) = torch.Size([2, 512, 1, 32, 16])
         return self.cat_conv(torch.cat((x_up, x_low), 1))

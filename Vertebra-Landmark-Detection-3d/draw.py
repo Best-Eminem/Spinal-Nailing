@@ -28,11 +28,7 @@ colors = [[0.76590096, 0.0266074, 0.9806378],
            [0.05281129, 0.89572238, 0.08913828],
 
            ]
-# img_id = '8.gt'
-# data_dict = joblib.load('E:\\ZN-CT-nii\\groundtruth\\' + img_id)
-#
-# pts2 = data_dict['landmarks'] * 4
-# img_series = data_dict['input'][0]
+
 def draw_points(img_series,pts2):
     img_series_a = img_series[0][0]
     img_series_b = img_series_a.copy()
@@ -40,21 +36,29 @@ def draw_points(img_series,pts2):
         # color = np.random.rand(3)
         color = colors[i]
         # print(i+1, color)
-        color_255 = (255 * color[0], 255 * color[1], 255 * color[2])
+        color_255 = (255 * 1, 255 * 0, 255 * 0)
         z_axis = int(pt[0])
         y_axis = int(pt[1])
         x_axis = int(pt[2])
-        tp = np.full((136,512),-1,dtype=np.float32)
+        tp = np.full((40,200),-1,dtype=np.float32)
         ori_image_regress_z = img_series_a[z_axis]
         ori_image_regress_x = np.transpose(img_series_b[:,:,x_axis],(0,1))
         ori_image_regress_x = np.r_[tp,ori_image_regress_x]
         ori_image_regress_x = np.r_[ori_image_regress_x,tp]
-        #cv2.circle(ori_image_regress_z, (x_axis, y_axis), 4, color_255, -1, 1)
-        cv2.circle(ori_image_regress_x, (y_axis, z_axis + 136), 4, color_255)#, -1, 1)
-        #cv2.imshow('ori_image_regress_z', ori_image_regress_z) #确定z轴，画剖面图
+        cv2.circle(ori_image_regress_z, (x_axis, y_axis), 2, color_255, -1, 1)
+        cv2.circle(ori_image_regress_x, (y_axis, z_axis + 40), 2, color_255, -1, 1)
+        cv2.imshow('ori_image_regress_z', ori_image_regress_z) #确定z轴，画剖面图
         cv2.imshow('ori_image_regress_x', ori_image_regress_x)  #确定x轴，画侧视图
         k = cv2.waitKey(0) & 0xFF
         if k == ord('q'):
             cv2.destroyAllWindows()
             exit()
+
+#用来测试作为label的landmark位置是否准确
+# img_id = '7.gt'
+# data_dict = joblib.load('E:\\ZN-CT-nii\\groundtruth\\' + img_id)
+#
+# pts2 = data_dict['landmarks'] * 4
+# a,b,c,d = data_dict['input'].shape
+# img_series = data_dict['input'].reshape((1,a,b,c,d))
 # draw_points(img_series,pts2)
