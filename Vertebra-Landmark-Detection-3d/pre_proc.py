@@ -160,6 +160,7 @@ def generate_ground_truth(image,
     image = max_pool_downsize(image).numpy()
     intense_image = torch.from_numpy(intense_image)
     intense_image = max_pool_downsize(intense_image).numpy()
+    ct_landmark_int = ct_landmark_int//2
     ret = {'input': intense_image,
            'origin_image':image,
            'hm': hm,
@@ -167,7 +168,7 @@ def generate_ground_truth(image,
            'reg': reg,
            # 'wh': wh,
            'reg_mask': reg_mask,
-           'landmarks':ct_landmark_int//2
+           'landmarks':ct_landmark_int
            }
     return ret
 

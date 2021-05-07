@@ -76,3 +76,52 @@ def load_gt_pts(annopath):
 # print(h.shape)
 # data_dict = joblib.load('E:\\ZN-CT-nii\\groundtruth\\'+ '6'+'.gt')
 # print(1)
+def define_area(point1, point2, point3):
+    """
+    法向量    ：n={A,B,C}
+    :return:（Ax, By, Cz, D）代表：Ax + By + Cz + D = 0
+    """
+    point1 = np.asarray(point1)
+    point2 = np.asarray(point2)
+    point3 = np.asarray(point3)
+    AB = np.asmatrix(point2 - point1)
+    AC = np.asmatrix(point3 - point1)
+    N = np.cross(AB, AC)  # 向量叉乘，求法向量
+    # Ax+By+Cz
+    Ax = N[0, 0]
+    By = N[0, 1]
+    Cz = N[0, 2]
+    D = -(Ax * point1[0] + By * point1[1] + Cz * point1[2])
+    return Ax, By, Cz, D
+
+
+def point2area_distance(point1, point2, point3, point4):
+    """
+    :param point1:数据框的行切片，三维
+    :param point2:
+    :param point3:
+    :param point4:
+    :return:点到面的距离
+    """
+    Ax, By, Cz, D = define_area(point1, point2, point3)
+    mod_d = Ax * point4[0] + By * point4[1] + Cz * point4[2] + D
+    mod_area = np.sqrt(np.sum(np.square([Ax, By, Cz])))
+    d = abs(mod_d) / mod_area
+    return d
+
+
+if __name__ == '__main__':
+    # 初始化数据
+    point1 = [24, 10, 3]
+    point2 = [19, 17, 4]
+    point3 = [29, 17, 4]
+    point4 = [-5, -4, 8]
+    # 计算点到面的距离
+    d1 = point2area_distance(point1, point2, point3, point4)  # s=8.647058823529413
+    print("点到面的距离s: " + str(d1))
+    # list = [[1,2,3],[4,5,6]]
+    # list = np.asarray(list)
+    # list = torch.from_numpy(list)
+    # list = list[:2,:2]*3
+    # list = list.data
+    # print('1')

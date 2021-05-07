@@ -110,7 +110,7 @@ class Network(object):
             # 等待当前设备上所有流中的所有核心完成。
             torch.cuda.synchronize(self.device)
             #将heatmap还原为坐标
-            pts2 = self.decoder.ctdet_decode(hm, reg)   # 17, 11
+            pts2 = self.decoder.ctdet_decode(hm, reg, True)   # 17, 11
             pts0 = pts2.copy()
             pts0[:self.points_num,:3] *= args.down_ratio
             pts_predict = pts0[:self.points_num,:3].tolist()

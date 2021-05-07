@@ -53,12 +53,12 @@ class DecDecoder(object):
         feat = self._gather_feat(feat, ind)
         return feat
 
-    def ctdet_decode(self, heat, reg):
+    def ctdet_decode(self, heat, reg, for_test):
         # output: num_obj x 7
         # 7: cenx, ceny, w, h, angle, score, cls
         batch, c, slice, height, width = heat.size()
-        heat_a = heat[0,0].to('cpu')
-        heat_a = heat_a.numpy()
+        # heat_a = heat[0,0].to('cpu')
+        # heat_a = heat_a.detach().numpy()
 
         #max_points,index = torch.max(heat_a)
         heat = self._nms(heat)
@@ -88,7 +88,9 @@ class DecDecoder(object):
                          # bl_x,bl_y,
                          # br_x,br_y,
                          scores], dim=2).squeeze(0)
-        return pts.data.cpu().numpy()
+        if for_test:
+            return pts.data.cpu().numpy()
+        else:return pts
 
     def get_landmarks(self,heat):
         return 0

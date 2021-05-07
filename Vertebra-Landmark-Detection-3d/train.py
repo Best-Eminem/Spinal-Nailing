@@ -8,6 +8,7 @@ import loss
 from dataset import BaseDataset
 from matplotlib import pyplot as plt
 from torchviz import make_dot
+from tensorboardX import SummaryWriter
 
 def collater(data):
     out_data_dict = {}
@@ -36,10 +37,12 @@ class Network(object):
                                          down_ratio=args.down_ratio,
                                          final_kernel=1,
                                          head_conv=256)
+
         self.num_classes = args.num_classes # 1
         # *******************************解码器 待修改,后面没用上？
         self.decoder = decoder.DecDecoder(K=args.K, conf_thresh=args.conf_thresh) #K为特征点的最大个数
         self.dataset = {'spinal': BaseDataset}
+        # self.writer = SummaryWriter(comment='SpineNet')
 
 
     def save_model(self, path, epoch, model):
@@ -76,10 +79,12 @@ class Network(object):
                 if not (k in state_dict):
                     print('No param {}.'.format(k))
                     state_dict[k] = model_state_dict[k]
-        model.load_state_dict(state_dict, strict=False)
+        # model.load_state_dict(state_dict, strict=False)
+        model.load_state_dict(state_dict_, strict=False)
         return model
 
     def train_network(self, args):
+
         # args.dataset = 'spinal'
         save_path = 'weights_'+args.dataset
         if not os.path.exists(save_path):
@@ -93,7 +98,8 @@ class Network(object):
             if torch.cuda.device_count() > 1:
                 print("Let's use", torch.cuda.device_count(), "GPUs!")
                 self.model = nn.DataParallel(self.model)
-
+        save_path = 'weights_' + args.dataset + '//without_point_loss'
+        self.model = self.load_model(self.model, os.path.join(save_path, args.resume))
         self.model.to(self.device)
         # criterion为loss函数
         # *******************************************待修改
@@ -136,6 +142,7 @@ class Network(object):
             epoch_loss = self.run_epoch(phase='train',
                                         data_loader=dsets_loader['train'],
                                         criterion=criterion)
+            # self.writer.add_scalar('Train', epoch_loss,epoch)
             train_loss.append(epoch_loss)
             #调整学习率
             scheduler.step(epoch)
@@ -172,13 +179,18 @@ class Network(object):
                 with torch.enable_grad():
                     pr_decs = self.model(data_dict['input'])
                     # graph = make_dot(pr_decs['hm']) #画计算图
-
+                    #
                     # graph.view('model_structure.pdf', '.\\imgs\\')
                     # tp = data_dict['hm'][0,:,:].cpu()
                     # plt.imshow(tp[0,:,:])
                     # plt.show()
                     loss = criterion(pr_decs, data_dict)
+
                     loss.backward()
+                    for name, parms in self.model.named_parameters():
+                        print('-->name:', name, '-->is_leaf:',parms.is_leaf,'-->grad_requirs:', parms.requires_grad,
+                              ' -->grad_value:', parms.grad)
+                    print(data_dict['input'].grad)
                     #loss.backward(torch.tensor(100.))
                     self.optimizer.step()
             else:

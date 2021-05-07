@@ -22,6 +22,6 @@ model = SpineNet(heads=heads,
                  final_kernel=1,
                  head_conv=256)
 
-dummy_input = Variable(torch.rand(1, 1,120, 256,256))
+dummy_input = Variable(torch.rand(1, 1,120, 200,200))
 with SummaryWriter(comment='SpineNet') as w:
     w.add_graph(model, (dummy_input, ))
