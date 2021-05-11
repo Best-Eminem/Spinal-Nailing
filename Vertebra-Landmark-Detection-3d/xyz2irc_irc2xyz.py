@@ -36,6 +36,6 @@ def xyz2irc(itkImage,coord_xyz):
     coord_a = np.array(coord_xyz)
     coord_a = coord_a.astype('float32')
     cri_a = ((coord_a - origin_a) @ np.linalg.inv(np.array(direction_a).reshape(3,3))) / vxSize_a
-    cri_a = np.round(cri_a)
+    #cri_a = np.round(cri_a)
     #return IrcTuple(int(cri_a[2]), int(cri_a[1]), int(cri_a[0]))
-    return [int(cri_a[2]), int(cri_a[1]), int(cri_a[0])]
+    return [float(cri_a[2]), float(cri_a[1]), float(cri_a[0])]

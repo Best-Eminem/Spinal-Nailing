@@ -41,6 +41,7 @@ class Network(object):
         self.dataset = {'spinal': BaseDataset}
         self.criterion = loss.LossAll()
         self.points_num = args.K #K为特征点的最大个数
+        self.downsize_ratio = 2
 
     def load_model(self, model, resume):
         checkpoint = torch.load(resume, map_location=lambda storage, loc: storage)
@@ -91,14 +92,17 @@ class Network(object):
                 if name!='img_id':
                     data_dict[name] = data_dict[name].to(device=self.device)
             images = data_dict['images'][0]
+            origin_images = data_dict['origin_images'][0]
             img_id = data_dict['img_id'][0]
             hm_gt = data_dict['hm']
+            reg_gt = data_dict['reg'].cpu().numpy()[0]
             pts_gt = data_dict['landmarks'].cpu().numpy()[0]
-
-            pts_gt *= 4
+            pts_gt = np.asarray(pts_gt,dtype=np.float32)
+            pts_gt *= (4*self.downsize_ratio)
+            pts_gt += reg_gt
             pts_gt = pts_gt.tolist()
-            pts_gt.sort(key=lambda x: (x[0], x[1]))
-
+            pts_gt.sort(key=lambda x: (x[0], x[1], x[2]))
+            pts_gt = np.asarray(pts_gt,dtype=np.int32)
             images = images.to('cuda')
             print('processing {}/{} image ... {}'.format(cnt, len(data_loader), img_id))
             with torch.no_grad():
@@ -112,17 +116,20 @@ class Network(object):
             #将heatmap还原为坐标
             pts2 = self.decoder.ctdet_decode(hm, reg, True)   # 17, 11
             pts0 = pts2.copy()
-            pts0[:self.points_num,:3] *= args.down_ratio
+
+            pts0[:self.points_num,:3] *= (args.down_ratio * self.downsize_ratio)
             pts_predict = pts0[:self.points_num,:3].tolist()
             print('totol pts num is {}'.format(len(pts2)))
             images = images.to('cpu')
             images = images.numpy()
-            pts_predict.sort(key = lambda x:(x[0],x[1]))
+            origin_images = origin_images.to('cpu')
+            origin_images = origin_images.numpy()
+            pts_predict.sort(key = lambda x:(x[0],x[1],x[2]))
             pts_predict = np.asarray(pts_predict,'float32')
             pts_predict = np.asarray(np.round(pts_predict), 'int32')
-            print(pts_gt)
-            print(pts_predict)
-            draw.draw_points(images,pts_predict)
+            print(pts_gt.tolist())
+            print(pts_predict.tolist())
+            draw.draw_points(origin_images,np.asarray(pts_predict),pts_gt)
             # for i in range(3):
             #     img = images[0][0]
             #     pts = np.asarray(np.round(pts0),np.int32)

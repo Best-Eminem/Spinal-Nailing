@@ -81,8 +81,10 @@ def generate_ground_truth(image,
                           image_w,
                           img_id,
                           full):
-
-    hm = np.zeros((image_s, image_h, image_w), dtype=np.float32)
+    #因为要downsize为1/2，所以要将参数大小除2取整数
+    downsize = 2
+    down_ratio = 4
+    hm = np.zeros((image_s//downsize, image_h//downsize, image_w//downsize), dtype=np.float32)
     # print(hm.shape)
     # plt.imshow(hm[0, :, :])
     # plt.show()
@@ -128,17 +130,17 @@ def generate_ground_truth(image,
             # min([np.sqrt((pts[3,1]-pts[4,1])**2),
             #               np.sqrt((pts[5,1]-pts[6,1])**2)])
             zhuigonggeng_right_landmarks_distance = np.sqrt(np.sum((pts[7*i+5, :] - pts[7*i+6, :]) ** 2))
-            cen_z1, cen_y1, cen_x1 = np.round(np.mean(pts[7*i+3:7*i+5], axis=0))
-            cen_z2, cen_y2, cen_x2 = np.round(np.mean(pts[7*i+5:7*i+7], axis=0))
+            cen_z1, cen_y1, cen_x1 = np.mean(pts[7*i+3:7*i+5], axis=0)
+            cen_z2, cen_y2, cen_x2 = np.mean(pts[7*i+5:7*i+7], axis=0)
             ct_landmark.append(pts[7*i+1])
             ct_landmark.append([cen_z1, cen_y1, cen_x1])
             ct_landmark.append([cen_z2, cen_y2, cen_x2])
             diameter = min(zhuigonggeng_left_landmarks_distance, zhuigonggeng_right_landmarks_distance)
             min_diameter = min(min_diameter,diameter)
     # 椎弓更的landmark
-
-    ct_landmark = np.round(np.asarray(ct_landmark, dtype=np.float32))
-    ct_landmark_int = ct_landmark.astype(np.int32)
+    #要downsize，所以要除2
+    ct_landmark = np.asarray(ct_landmark, dtype=np.float32)/downsize
+    ct_landmark_int = np.floor(ct_landmark).astype(np.int32)
     #radius = gaussian_radius((math.ceil(distance_y), math.ceil(distance_x)))
     radius = max(0, int(min_diameter))//2
     #生成脊锥中心点的热图
@@ -147,20 +149,24 @@ def generate_ground_truth(image,
         hm = draw_umich_gaussian(hm, ct_landmark_int[i], radius=radius)
         # 每个landmark坐标值与ct长宽高形成约束？
         ind[i] = ct_landmark_int[i][2] * image_w + ct_landmark_int[i][1] * image_h + ct_landmark_int[i][0]
-        reg[i] = ct_landmark[i] - ct_landmark_int[i]
+        reg[i] = (ct_landmark[i] - ct_landmark_int[i]) * down_ratio * downsize #reg 为坐标点的误差，因为坐标相对于原始坐标缩小为原大小的1/8，所以要乘8
         reg_mask[i] = 1
     # for i in range(4):
     #     wh[k,2*i:2*i+2] = ct_landmark-pts[i,:]
-    hm = hm.reshape([1,1,image_s, image_h, image_w])
-    hm = torch.from_numpy(hm)
+    #hm = hm.reshape([1,1,image_s, image_h, image_w])
+    #hm = torch.from_numpy(hm)
+    #为了节约存储，将输入以及hm downsize为原来的1/2，input大小为120*200*200，hm大小为30*50*50
     max_pool_downsize = nn.MaxPool3d(kernel_size=3,stride=2,padding=1)
-    hm = max_pool_downsize(hm).numpy()
-    hm = hm.reshape(hm.shape[2:])
-    image = torch.from_numpy(image)
-    image = max_pool_downsize(image).numpy()
+    #hm = max_pool_downsize(hm).numpy()
+    #hm = hm.reshape(hm.shape[2:])
+    #增强hm中的landmark的像素值
+    # hm[hm>=1] +=1
+
+    # image = torch.from_numpy(image)
+    # image = max_pool_downsize(image).numpy()
     intense_image = torch.from_numpy(intense_image)
     intense_image = max_pool_downsize(intense_image).numpy()
-    ct_landmark_int = ct_landmark_int//2
+    #ct_landmark_int = ct_landmark_int//2
     ret = {'input': intense_image,
            'origin_image':image,
            'hm': hm,
@@ -192,7 +198,7 @@ def processing_train(image, pts, points_num,image_h, image_w, image_s, down_rati
     pts_irc = []  # ['index', 'row', 'col']
     for i in range(len(pts)):
         pts_irc.append(xyz2irc(image, pts[i]))
-    pts_irc = np.asarray(pts_irc)
+    pts_irc = np.asarray(pts_irc) #小数形式
     image_array = sitk.GetArrayFromImage(image)
     data_series = []
     data_aug = {'train': transform.Compose([transform.ConvertImgFloat(),  # 转为float32格式
@@ -234,7 +240,9 @@ def processing_train(image, pts, points_num,image_h, image_w, image_s, down_rati
             data_series.append((out_image,pts2))
     else:
         bottom_z = pts_irc[:,0].min() - 5
-        top_z = pts_irc[:, 0].max() + 5
+        bottom_z = np.floor(bottom_z).astype(np.int32)
+        top_z = pts_irc[:,0].max() + 5
+        top_z = np.ceil(top_z).astype(np.int32)
         # 所有点的z轴坐标要改变
         pts_irc[:, 0] = pts_irc[:, 0] - bottom_z
         # 所有点的x，y轴坐标要减小

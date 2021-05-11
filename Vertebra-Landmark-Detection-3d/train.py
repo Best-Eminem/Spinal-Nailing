@@ -98,8 +98,8 @@ class Network(object):
             if torch.cuda.device_count() > 1:
                 print("Let's use", torch.cuda.device_count(), "GPUs!")
                 self.model = nn.DataParallel(self.model)
-        save_path = 'weights_' + args.dataset + '//without_point_loss'
-        self.model = self.load_model(self.model, os.path.join(save_path, args.resume))
+        save_path_load = 'weights_' + args.dataset + '//without_point_loss'
+        #self.model = self.load_model(self.model, os.path.join(save_path_load, args.resume))
         self.model.to(self.device)
         # criterion为loss函数
         # *******************************************待修改
@@ -187,10 +187,10 @@ class Network(object):
                     loss = criterion(pr_decs, data_dict)
 
                     loss.backward()
-                    for name, parms in self.model.named_parameters():
-                        print('-->name:', name, '-->is_leaf:',parms.is_leaf,'-->grad_requirs:', parms.requires_grad,
-                              ' -->grad_value:', parms.grad)
-                    print(data_dict['input'].grad)
+                    # for name, parms in self.model.named_parameters():
+                    #     print('-->name:', name, '-->is_leaf:',parms.is_leaf,'-->grad_requirs:', parms.requires_grad,
+                    #           ' -->grad_value:', parms.grad)
+                    #print(data_dict['input'].grad)
                     #loss.backward(torch.tensor(100.))
                     self.optimizer.step()
             else:

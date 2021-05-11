@@ -202,4 +202,4 @@ class Resize(object):
         pts[:, 1] = pts[:, 1]/h*self.pts_dsize[1]
         pts[:, 2] = pts[:, 2]/w*self.pts_dsize[2]
         img = resize_image_itk(sitk.GetImageFromArray(img), newSize=self.img_dsize, resamplemethod=sitk.sitkLinear)
-        return sitk.GetArrayFromImage(img), np.round(pts)
+        return sitk.GetArrayFromImage(img), pts
