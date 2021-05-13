@@ -66,7 +66,7 @@ class DecDecoder(object):
         scores = scores.view(batch, self.K, 1)
         reg = self._tranpose_and_gather_feat(reg, inds)
         reg = reg.view(batch, self.K, 3)
-        reg /= 8
+        reg = reg/8
         tp = reg[:, :, 2:3]
         zs = zs.view(batch, self.K, 1) + reg[:, :, 0:1]
         ys = ys.view(batch, self.K, 1) + reg[:, :, 1:2]

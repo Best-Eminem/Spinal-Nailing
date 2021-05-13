@@ -145,10 +145,13 @@ def generate_ground_truth(image,
     radius = max(0, int(min_diameter))//2
     #生成脊锥中心点的热图
     #draw_umich_gaussian(hm[0,:,:], ct_landmark_int, radius=radius)
+    image_w = image_w//2
+    image_h = image_h//2
+    image_s = image_s//2
     for i in range(points_num):
         hm = draw_umich_gaussian(hm, ct_landmark_int[i], radius=radius)
         # 每个landmark坐标值与ct长宽高形成约束？
-        ind[i] = ct_landmark_int[i][2] * image_w + ct_landmark_int[i][1] * image_h + ct_landmark_int[i][0]
+        ind[i] = ct_landmark_int[i][2] + ct_landmark_int[i][1] * image_w + ct_landmark_int[i][0] * (image_w * image_h)
         reg[i] = (ct_landmark[i] - ct_landmark_int[i]) * down_ratio * downsize #reg 为坐标点的误差，因为坐标相对于原始坐标缩小为原大小的1/8，所以要乘8
         reg_mask[i] = 1
     # for i in range(4):

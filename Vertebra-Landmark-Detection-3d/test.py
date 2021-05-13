@@ -98,6 +98,7 @@ class Network(object):
             reg_gt = data_dict['reg'].cpu().numpy()[0]
             pts_gt = data_dict['landmarks'].cpu().numpy()[0]
             pts_gt = np.asarray(pts_gt,dtype=np.float32)
+
             pts_gt *= (4*self.downsize_ratio)
             pts_gt += reg_gt
             pts_gt = pts_gt.tolist()

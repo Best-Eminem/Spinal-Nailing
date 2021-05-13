@@ -11,7 +11,8 @@ class RegL1Loss(nn.Module):
 
     def _gather_feat(self, feat, ind, mask=None):
         dim = feat.size(2)
-        ind = ind.unsqueeze(2).expand(ind.size(0), ind.size(1), dim)
+        ind = ind.unsqueeze(2)
+        ind = ind.expand(ind.size(0), ind.size(1), dim)
         feat = feat.gather(1, ind)
         if mask is not None:
             mask = mask.unsqueeze(2).expand_as(feat)
@@ -29,6 +30,7 @@ class RegL1Loss(nn.Module):
     def forward(self, output, mask, ind, target):
         pred = self._tranpose_and_gather_feat(output, ind)
         mask = mask.unsqueeze(2).expand_as(pred).float()
+        print(pred * mask)
         loss = F.l1_loss(pred * mask, target * mask, reduction='sum')
         loss = loss / (mask.sum() + 1e-4)
         return loss

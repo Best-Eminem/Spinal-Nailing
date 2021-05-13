@@ -112,16 +112,28 @@ def point2area_distance(point1, point2, point3, point4):
 
 if __name__ == '__main__':
     # 初始化数据
-    point1 = [24, 10, 3]
-    point2 = [19, 17, 4]
-    point3 = [29, 17, 4]
-    point4 = [-5, -4, 8]
-    # 计算点到面的距离
-    d1 = point2area_distance(point1, point2, point3, point4)  # s=8.647058823529413
-    print("点到面的距离s: " + str(d1))
+    # point1 = [24, 10, 3]
+    # point2 = [19, 17, 4]
+    # point3 = [29, 17, 4]
+    # point4 = [-5, -4, 8]
+    # # 计算点到面的距离
+    # d1 = point2area_distance(point1, point2, point3, point4)  # s=8.647058823529413
+    # print("点到面的距离s: " + str(d1))
     # list = [[1,2,3],[4,5,6]]
     # list = np.asarray(list)
     # list = torch.from_numpy(list)
     # list = list[:2,:2]*3
     # list = list.data
     # print('1')
+    a = torch.tensor([[[1,2],[3,4]],[[5,6],[7,8]]])
+    a = a.view(1,-1,1)
+    print(a)
+    # b = torch.randint(0,4,(1,5))
+    # b = b.unsqueeze(2)
+    # b = b.expand(1,5,3)
+    # # print(b)
+    # tp = a.gather(1,b)
+    # # print(tp)
+    # b.requires_grad = True
+    # tp.backward()
+    # print(b.grad,a.grad)
