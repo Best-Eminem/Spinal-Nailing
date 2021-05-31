@@ -122,11 +122,14 @@ class Point2PlaneLoss(nn.Module):
         loss_average = 0
 
         for i in range(self.points_num):
-            loss +=  pred_points.sum()#self.distance(pred_points[i],gt_planes[i//3])
+            loss +=  self.distance(pred_points[i],gt_planes[i//3])
             if (i+1)%3 == 0:
                 loss_average += (loss/3)
                 loss = 0
         return loss_average/5
+
+    def backward(self, result):
+        return result
 
 class LossAll(torch.nn.Module):
     def __init__(self):
@@ -141,11 +144,11 @@ class LossAll(torch.nn.Module):
     def forward(self, pr_decs, gt_batch):
 
         hm_loss  = self.L_hm(pr_decs['hm'],  gt_batch['hm'])
-        #point_dis_loss = self.L_dis(pr_decs['hm'],pr_decs['reg'],gt_batch['landmarks'])
+        point_dis_loss = self.L_dis(pr_decs['hm'],pr_decs['reg'],gt_batch['landmarks'])
         # 不需要 corner offset
         # wh_loss  = self.L_wh(pr_decs['wh'], gt_batch['reg_mask'], gt_batch['ind'], gt_batch['wh'])
         normal_vector_loss = self.L_normal_vector(pr_decs['normal_vector'], gt_batch['reg_mask'], gt_batch['ind'], gt_batch['normal_vector'])
         off_loss = self.L_off(pr_decs['reg'], gt_batch['reg_mask'], gt_batch['ind'], gt_batch['reg'])
-        loss_dec = hm_loss + off_loss + normal_vector_loss #+ point_dis_loss
+        loss_dec = hm_loss + off_loss + normal_vector_loss + point_dis_loss
         #loss_dec = point_dis_loss
         return loss_dec
