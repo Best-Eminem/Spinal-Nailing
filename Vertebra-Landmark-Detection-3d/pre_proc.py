@@ -154,6 +154,29 @@ def generate_ground_truth(image,
         ind[i] = ct_landmark_int[i][2] + ct_landmark_int[i][1] * image_w + ct_landmark_int[i][0] * (image_w * image_h)
         reg[i] = (ct_landmark[i] - ct_landmark_int[i]) * down_ratio * downsize #reg 为坐标点的误差，因为坐标相对于原始坐标缩小为原大小的1/8，所以要乘8
         reg_mask[i] = 1
+    normal_vector = [] #求三点构成平面的法向量
+    for i in range(5):
+        point_a = ct_landmark_int[i]
+        point_b = ct_landmark_int[i+1]
+        point_c = ct_landmark_int[i+2]
+        # point1 = np.asarray(point1)
+        # point2 = np.asarray(point2)
+        # point3 = np.asarray(point3)
+        AB = np.asmatrix(point_b - point_a)
+        AC = np.asmatrix(point_c - point_a)
+        N = np.cross(AB, AC) # 向量叉乘，求法向量
+        # 法向量：n={-C,-B,-A} 因为我们的顺序是{z,y,x},但是直接认为法向量是n={A,B,C}，不影响训练
+        A = N[0, 0]
+        B = N[0, 1]
+        C = N[0, 2]
+        #单位化法向量
+        sum = np.sqrt(A**2 + B**2 + C**2)
+        A = A/sum
+        B = B/sum
+        C = C/sum
+        for j in range(3):
+            normal_vector.append([A,B,C])
+    normal_vector = np.asarray(normal_vector,dtype=np.float32)
     # for i in range(4):
     #     wh[k,2*i:2*i+2] = ct_landmark-pts[i,:]
     #hm = hm.reshape([1,1,image_s, image_h, image_w])
@@ -177,7 +200,8 @@ def generate_ground_truth(image,
            'reg': reg,
            # 'wh': wh,
            'reg_mask': reg_mask,
-           'landmarks':ct_landmark_int
+           'landmarks':ct_landmark_int,
+           'normal_vector': normal_vector
            }
     return ret
 

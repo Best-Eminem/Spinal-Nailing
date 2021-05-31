@@ -16,7 +16,8 @@ model = spinal_net.SpineNet(heads=heads,
                             down_ratio=4,
                             final_kernel=1,
                             head_conv=256)
-a = torch.rand((1,1,240,512,512))
+a = torch.rand((1,1,120,200,200))
+x = model(a)
 max_pool = nn.MaxPool3d(kernel_size=3,stride=2,padding=1)
 b = max_pool(a)
 print(b.size())

@@ -27,7 +27,8 @@ class Network(object):
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         #heads表示的是最后一层输出的通道数
         heads = {'hm': args.num_classes,
-                 'reg': 3*args.num_classes
+                 'reg': 3*args.num_classes,
+                 'normal_vector': 3*args.num_classes
                  # 不需要计算corner offset
                  #'wh': 3*4
                  }

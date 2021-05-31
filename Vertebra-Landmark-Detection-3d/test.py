@@ -28,6 +28,7 @@ class Network(object):
         # heads表示的是最后一层输出的通道数
         heads = {'hm': args.num_classes,
                  'reg': 3*args.num_classes,
+                 'normal_vector': 3 * args.num_classes,
                  #'wh': 3*4,
                  }
 

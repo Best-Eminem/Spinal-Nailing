@@ -30,7 +30,7 @@ class RegL1Loss(nn.Module):
     def forward(self, output, mask, ind, target):
         pred = self._tranpose_and_gather_feat(output, ind)
         mask = mask.unsqueeze(2).expand_as(pred).float()
-        print(pred * mask)
+        #print(pred * mask)
         loss = F.l1_loss(pred * mask, target * mask, reduction='sum')
         loss = loss / (mask.sum() + 1e-4)
         return loss
@@ -135,6 +135,7 @@ class LossAll(torch.nn.Module):
         self.L_hm = FocalLoss()
         self.L_off = RegL1Loss()
         self.L_dis = Point2PlaneLoss()
+        self.L_normal_vector = RegL1Loss()
 
         # self.L_wh =  RegL1Loss()
     def forward(self, pr_decs, gt_batch):
@@ -143,7 +144,8 @@ class LossAll(torch.nn.Module):
         #point_dis_loss = self.L_dis(pr_decs['hm'],pr_decs['reg'],gt_batch['landmarks'])
         # 不需要 corner offset
         # wh_loss  = self.L_wh(pr_decs['wh'], gt_batch['reg_mask'], gt_batch['ind'], gt_batch['wh'])
+        normal_vector_loss = self.L_normal_vector(pr_decs['normal_vector'], gt_batch['reg_mask'], gt_batch['ind'], gt_batch['normal_vector'])
         off_loss = self.L_off(pr_decs['reg'], gt_batch['reg_mask'], gt_batch['ind'], gt_batch['reg'])
-        loss_dec = hm_loss + off_loss #+ point_dis_loss
+        loss_dec = hm_loss + off_loss + normal_vector_loss #+ point_dis_loss
         #loss_dec = point_dis_loss
         return loss_dec

@@ -20,7 +20,7 @@ def parse_args():
     parser.add_argument('--ngpus', type=int, default=1, help='number of gpus')
     parser.add_argument('--resume', type=str, default='model_50.pth', help='weights to be resumed')
     parser.add_argument('--data_dir', type=str, default='E:\\ZN-CT-nii', help='data directory')
-    parser.add_argument('--phase', type=str, default='train', help='data directory')
+    parser.add_argument('--phase', type=str, default='test', help='data directory')
     parser.add_argument('--dataset', type=str, default='spinal', help='data directory')
     args = parser.parse_args()
     return args
