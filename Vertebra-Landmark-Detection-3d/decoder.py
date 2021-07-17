@@ -16,7 +16,7 @@ class DecDecoder(object):
         scores = scores.view(batch, cat, -1)
         # torch.topk获取hm中前K大的点的值以及序号
         topk_scores, topk_inds = torch.topk(scores, self.K)
-        topk_zs = topk_inds / (height * width)
+        topk_zs = (topk_inds / (height * width)).int().float()
         topk_inds = topk_inds % (height * width)
         topk_ys = (topk_inds / width).int().float()
         topk_xs = (topk_inds % width).int().float()
@@ -53,7 +53,7 @@ class DecDecoder(object):
         feat = self._gather_feat(feat, ind)
         return feat
 
-    def ctdet_decode(self, heat, reg, for_test):
+    def ctdet_decode(self, heat, reg, for_test,down_ratio,downsize):
         # output: num_obj x 7
         # 7: cenx, ceny, w, h, angle, score, cls
         batch, c, slice, height, width = heat.size()
@@ -64,13 +64,14 @@ class DecDecoder(object):
         heat = self._nms(heat)
         scores, inds, zs, ys, xs = self._topk(heat)
         scores = scores.view(batch, self.K, 1)
-        reg = self._tranpose_and_gather_feat(reg, inds)
-        reg = reg.view(batch, self.K, 3)
-        reg = reg/8
-        tp = reg[:, :, 2:3]
-        zs = zs.view(batch, self.K, 1) + reg[:, :, 0:1]
-        ys = ys.view(batch, self.K, 1) + reg[:, :, 1:2]
-        xs = xs.view(batch, self.K, 1) + reg[:, :, 2:3]
+        #reg = self._tranpose_and_gather_feat(reg, inds)
+        #reg = reg.view(batch, self.K, 3)
+        #print('reg_pre: ', reg)
+        #reg = reg/(down_ratio*downsize)
+        #tp = reg[:, :, 2:3]
+        zs = zs.view(batch, self.K, 1) #+ reg[:, :, 0:1]
+        ys = ys.view(batch, self.K, 1) #+ reg[:, :, 1:2]
+        xs = xs.view(batch, self.K, 1) #+ reg[:, :, 2:3]
         #wh = self._tranpose_and_gather_feat(wh, inds)
         #wh = wh.view(batch, self.K, 2*4)
 

@@ -1,16 +1,17 @@
 import collections
 import numpy as np
 import SimpleITK as sitk
-# file = sitk.ReadImage('D:\\CT\\1.nii.gz')
+file = sitk.ReadImage('E:\\ZN-CT-nii\\data\\gt\\7.nii.gz')
 # # 图像大小
 # file.GetSize()
 # # 坐标原点
 # origin_xyz = file.GetOrigin()
 # print(origin_xyz)
 # # 像素间距
-# vxSize_xyz = file.GetSpacing()
+vxSize_xyz = file.GetSpacing()
+#print(vxSize_xyz)
 # # 方向
-# direction_a = file.GetDirection()
+direction_a = file.GetDirection()
 # print(file.GetSize())
 # print(np.array(direction_a).reshape(3,3))
 # # 获取影像元数据(返回DICOM tags元组)

@@ -5,13 +5,13 @@ import torch
 
 
 class CombinationModule(nn.Module):
-    def __init__(self, c_low, c_up, batch_norm=False, group_norm=False, instance_norm=False):
+    def __init__(self, c_low, c_up, batch_norm=False, group_norm=False, instance_norm=False,add_skip_batchnorm =False):
         super(CombinationModule, self).__init__()
         if batch_norm:
-            self.up =  nn.Sequential(nn.Conv3d(c_low, c_up, kernel_size=3, padding=1, stride=1),
+            self.up =  nn.Sequential(nn.Conv3d(c_up*2, c_up, kernel_size=3, padding=1, stride=1),
                                      nn.BatchNorm3d(c_up),
                                      nn.ReLU(inplace=True))
-            self.cat_conv =  nn.Sequential(nn.Conv3d(c_up*2, c_up, kernel_size=1, stride=1),
+            self.cat_conv =  nn.Sequential(nn.Conv3d(c_low, c_up, kernel_size=1, stride=1),
                                            nn.BatchNorm3d(c_up),
                                            nn.ReLU(inplace=True))
         elif group_norm:
@@ -28,6 +28,11 @@ class CombinationModule(nn.Module):
             self.cat_conv = nn.Sequential(nn.Conv3d(c_up * 2, c_up, kernel_size=1, stride=1),
                                           nn.InstanceNorm3d(num_features=c_up),
                                           nn.ReLU(inplace=True))
+        elif add_skip_batchnorm:
+            self.up =  nn.Sequential(nn.Conv3d(c_low, c_up, kernel_size=3, padding=1, stride=1),
+                                     nn.ReLU(inplace=True))
+            self.cat_conv =  nn.Sequential(nn.Conv3d(96, c_up, kernel_size=1, stride=1),
+                                           nn.ReLU(inplace=True))
         else:
             self.up =  nn.Sequential(nn.Conv3d(c_low, c_up, kernel_size=3, padding=1, stride=1),
                                      nn.ReLU(inplace=True))

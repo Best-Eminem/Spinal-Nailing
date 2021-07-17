@@ -27,8 +27,8 @@ class Network(object):
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         #heads表示的是最后一层输出的通道数
         heads = {'hm': args.num_classes,
-                 'reg': 3*args.num_classes,
-                 'normal_vector': 3*args.num_classes
+                 # 'reg': 3*args.num_classes,
+                 # 'normal_vector': 3*args.num_classes
                  # 不需要计算corner offset
                  #'wh': 3*4
                  }
@@ -115,7 +115,7 @@ class Network(object):
                                    input_h=args.input_h,
                                    input_w=args.input_w,
                                    input_s=args.input_s,
-                                   down_ratio=args.down_ratio)
+                                   down_ratio=args.down_ratio,mode='spine_localisation')
                  for x in ['train', 'val']}
 
         dsets_loader = {'train': torch.utils.data.DataLoader(dsets['train'],
@@ -179,19 +179,17 @@ class Network(object):
                 self.optimizer.zero_grad()
                 with torch.enable_grad():
                     pr_decs = self.model(data_dict['input'])
-                    # graph = make_dot(pr_decs['hm']) #画计算图
-                    #
-                    # graph.view('model_structure.pdf', '.\\imgs\\')
-                    # tp = data_dict['hm'][0,:,:].cpu()
-                    # plt.imshow(tp[0,:,:])
-                    # plt.show()
+
                     loss = criterion(pr_decs, data_dict)
 
                     loss.backward()
+                    # graph = make_dot(loss)  # 画计算图
+                    #
+                    # graph.view('model_structure1', '.\\imgs\\')
                     # for name, parms in self.model.named_parameters():
                     #     print('-->name:', name, '-->is_leaf:',parms.is_leaf,'-->grad_requirs:', parms.requires_grad,
                     #           ' -->grad_value:', parms.grad)
-                    #print(data_dict['input'].grad)
+                    # print(data_dict['input'].grad)
                     #loss.backward(torch.tensor(100.))
                     self.optimizer.step()
             else:

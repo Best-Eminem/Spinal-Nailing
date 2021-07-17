@@ -113,11 +113,11 @@ class Point2PlaneLoss(nn.Module):
     def forward(self,pr_hm,reg,gt_points):
         pred_points = self.get_pre_points(pr_hm,reg)
         pred_points = pred_points.float().round()
-        pred_points.requires_grad = True
-        pred_points.retain_grad()
+        #pred_points.requires_grad = True
+        #pred_points.retain_grad()
         gt_planes = self.define_area(gt_points).float()
-        gt_planes.requires_grad = True
-        gt_planes.retain_grad()
+        #gt_planes.requires_grad = True
+        #gt_planes.retain_grad()
         loss = 0
         loss_average = 0
 
@@ -127,7 +127,6 @@ class Point2PlaneLoss(nn.Module):
                 loss_average += (loss/3)
                 loss = 0
         return loss_average/5
-
     def backward(self, result):
         return result
 
@@ -144,11 +143,15 @@ class LossAll(torch.nn.Module):
     def forward(self, pr_decs, gt_batch):
 
         hm_loss  = self.L_hm(pr_decs['hm'],  gt_batch['hm'])
-        point_dis_loss = self.L_dis(pr_decs['hm'],pr_decs['reg'],gt_batch['landmarks'])
+        #point_dis_loss = self.L_dis(pr_decs['hm'],pr_decs['reg'],gt_batch['landmarks'])
         # 不需要 corner offset
         # wh_loss  = self.L_wh(pr_decs['wh'], gt_batch['reg_mask'], gt_batch['ind'], gt_batch['wh'])
-        normal_vector_loss = self.L_normal_vector(pr_decs['normal_vector'], gt_batch['reg_mask'], gt_batch['ind'], gt_batch['normal_vector'])
-        off_loss = self.L_off(pr_decs['reg'], gt_batch['reg_mask'], gt_batch['ind'], gt_batch['reg'])
-        loss_dec = hm_loss + off_loss + normal_vector_loss + point_dis_loss
+        #normal_vector_loss = self.L_normal_vector(pr_decs['normal_vector'], gt_batch['reg_mask'], gt_batch['ind'], gt_batch['normal_vector'])
+        #off_loss = self.L_off(pr_decs['reg'], gt_batch['reg_mask'], gt_batch['ind'], gt_batch['reg'])
+        loss_dec = hm_loss #+ off_loss + normal_vector_loss #+ point_dis_loss
         #loss_dec = point_dis_loss
+        print('hm_loss= ',hm_loss.item()) #, ' off_loss= ',off_loss.item() , ' normal_vector_loss= ',normal_vector_loss.item())
         return loss_dec
+
+    # def backward(self,result):
+    #     return self.L_dis.backward(result)

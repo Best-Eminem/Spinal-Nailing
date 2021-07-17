@@ -18,6 +18,7 @@ model_urls = {
     'resnet_34_23dataset': 'E:\\ZN-CT-nii\\MedicalNet_pytorch_files\\pretrain\\resnet_34_23dataset.pth',
     'resnet_18': 'E:\\ZN-CT-nii\\MedicalNet_pytorch_files\\pretrain\\resnet_18.pth',
     'resnet_10': 'E:\\ZN-CT-nii\\MedicalNet_pytorch_files\\pretrain\\resnet_10.pth',
+    'resnet_50': 'E:\\ZN-CT-nii\\MedicalNet_pytorch_files\\pretrain\\resnet_50.pth',
 }
 
 def conv3x3x3(in_planes, out_planes, stride=1, dilation=1):
@@ -272,7 +273,7 @@ def resnet34(**kwargs):
 def resnet50(**kwargs):
     """Constructs a ResNet-50 model.
     """
-    model = ResNet(Bottleneck, [3, 4, 6, 3], **kwargs)
+    model = _resnet("resnet_50",Bottleneck, [3, 4, 6, 3], **kwargs)
     return model
 
 

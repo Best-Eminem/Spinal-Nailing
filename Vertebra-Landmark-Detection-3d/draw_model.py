@@ -18,10 +18,14 @@ heads = {'hm': 1,
                  }
 model = SpineNet(heads=heads,
                  pretrained=True,
-                 down_ratio=4,
+                 down_ratio=1,
                  final_kernel=1,
                  head_conv=256)
 
-dummy_input = Variable(torch.rand(1, 1,120, 200,200))
-with SummaryWriter(comment='SpineNet') as w:
-    w.add_graph(model, (dummy_input, ))
+
+input = Variable(torch.rand(1, 1,120, 200,200))
+output = model(input)
+print(1)
+# dummy_input = Variable(torch.rand(1, 1,120, 200,200))
+# with SummaryWriter(comment='SpineNet') as w:
+#     w.add_graph(model, (dummy_input, ))
