@@ -41,7 +41,7 @@ class spine_localisation_eval(object):
 
     def eval(self, args, save):
         save_path = 'weights_'+args.dataset
-        self.model = self.load_model(self.model, os.path.join(save_path, 'spine_location.pth'))
+        self.model = self.load_model(self.model, os.path.join(save_path, 'spine_localisation.pth'))
         self.model = self.model.to(self.device)
         #不启用 Batch Normalization 和 Dropout。
         self.model.eval()
@@ -66,11 +66,12 @@ class spine_localisation_eval(object):
         for cnt, data_dict in enumerate(data_loader):
             for name in data_dict:
                 # 将数据放入显存中
-                if name!='img_id':
+                if name!='img_id' and name!='spine_localisation_bottom_z':
                     data_dict[name] = data_dict[name].to(device=self.device)
             images = data_dict['images'][0]
             origin_images = data_dict['origin_images'][0]
             img_id = data_dict['img_id'][0]
+            spine_localisation_bottom_z = data_dict['spine_localisation_bottom_z'].numpy()
             hm_gt = data_dict['hm']
             #reg_gt = data_dict['reg'].cpu().numpy()[0]
             #print('reg_gt: ' , reg_gt)
@@ -101,4 +102,8 @@ class spine_localisation_eval(object):
             #将数据保存到本地
             print('pts_predict: ', pts_predict.tolist())
             print('pts_center: ', pts_center.tolist())
-            joblib.dump(pts_center, 'E:\\ZN-CT-nii\\eval\\spine_localisation_eval\\' + img_id[0:-3] + '.eval')
+            pts_dict = {}
+            pts_dict['pts'] = pts_predict
+            pts_dict['pts_center'] = pts_center
+            pts_dict['spine_localisation_bottom_z'] = spine_localisation_bottom_z
+            joblib.dump(pts_dict, 'E:\\ZN-CT-nii\\eval\\spine_localisation_eval\\' + img_id[0:-3] + '.eval')

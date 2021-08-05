@@ -26,7 +26,14 @@ class Network(object):
         torch.manual_seed(317)
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         # heads表示的是最后一层输出的通道数
-        heads = {'hm': args.num_classes,
+        heads = {'hm': args.num_classes * 5,
+
+                 # 若第一步输出5个hm的话，使用下面这一部分
+                 # 'hm1': args.num_classes,
+                 # 'hm2': args.num_classes,
+                 # 'hm3': args.num_classes,
+                 # 'hm4': args.num_classes,
+                 # 'hm5': args.num_classes,
                  # 'reg': 3*args.num_classes,
                  # 'normal_vector': 3 * args.num_classes,
                  #'wh': 3*4,
@@ -44,6 +51,7 @@ class Network(object):
         self.points_num = args.K #K为特征点的最大个数
         self.down_ratio = args.down_ratio
         self.downsize = args.downsize
+        self.mode = args.mode
 
     def load_model(self, model, resume):
         checkpoint = torch.load(resume, map_location=lambda storage, loc: storage)
@@ -80,7 +88,7 @@ class Network(object):
                                input_h=args.input_h,
                                input_w=args.input_w,
                                down_ratio=args.down_ratio,downsize=args.downsize,
-                               mode='spine_localisation')
+                               mode=self.mode)
 
         data_loader = torch.utils.data.DataLoader(dsets,
                                                   batch_size=1,
@@ -106,15 +114,25 @@ class Network(object):
             #print('reg_gt: ' , reg_gt)
             #pts_gt += reg_gt
             pts_gt = pts_gt.tolist()
+            # for i in range(5):
+            #     pts_gt.append([0,0,0])
             pts_gt.sort(key=lambda x: (x[0], x[1], x[2]))
             #pts_gt.append([0,0,0])
             #pts_gt.append([0, 0, 0])
             pts_gt = np.asarray(pts_gt,dtype=np.int32)
             images = images.to('cuda')
-            print('processing {}/{} image ... {}'.format(cnt, len(data_loader), img_id))
+            print('processing {}/{} image ... {}'.format(cnt+1, len(data_loader), img_id))
             with torch.no_grad():
                 output = self.model(images)
                 hm = output['hm']
+                # 若第一步输出5个hm的话，使用下面这一部分
+                # hm1 = output['hm1']
+                # hm2 = output['hm2']
+                # hm3 = output['hm3']
+                # hm4 = output['hm4']
+                # hm5 = output['hm5']
+                # hm = [hm1,hm2,hm3,hm4,hm5]
+
                 #wh = output['wh']
                 #reg = output['reg']
                 reg = 1
@@ -122,12 +140,26 @@ class Network(object):
             # 等待当前设备上所有流中的所有核心完成。
             torch.cuda.synchronize(self.device)
             #将heatmap还原为坐标
-            pts2 = self.decoder.ctdet_decode(hm, reg, True,down_ratio=self.down_ratio,downsize=self.downsize)   # 17, 11
-            pts0 = pts2.copy()
 
-            pts0[:self.points_num,:3] *= (self.down_ratio * self.downsize)
-            pts_predict = pts0[:self.points_num,:3].tolist()
-            print('totol pts num is {}'.format(len(pts2)))
+            if self.mode == 'spine_localisation':
+                hm = hm[0]
+                pts_predict = []
+                for i in range(5):
+                    pts2 = self.decoder.ctdet_decode(hm[i].reshape((1, 1, int(args.input_s/self.down_ratio), int(args.input_h/self.down_ratio), int(args.input_w/self.down_ratio))), reg, True,down_ratio=self.down_ratio,downsize=self.downsize)
+                    pts0 = pts2.copy()
+                    pts0[:self.points_num, :3] *= (self.down_ratio * self.downsize)
+                    pts_now = pts0[:self.points_num, :3].tolist()[0]
+                    pts_predict.append(pts_now)
+                    # pts_now = pts0[:self.points_num, :3].tolist()[1]
+                    # pts_predict.append(pts_now)
+            else:
+                pts2 = self.decoder.ctdet_decode(hm, reg, True,down_ratio=self.down_ratio,downsize=self.downsize)   # 17, 11
+                pts0 = pts2.copy()
+
+                pts0[:self.points_num,:3] *= (self.down_ratio * self.downsize)
+                pts_predict = pts0[:self.points_num,:3].tolist()
+
+            print('totol pts num is {}'.format(len(pts_predict)))
             images = images.to('cpu')
             images = images.numpy()
             origin_images = origin_images.to('cpu')
@@ -138,7 +170,7 @@ class Network(object):
             print('pts_predict: ', pts_predict.tolist())
             print('pts_gt: ',pts_gt.tolist())
 
-            draw.draw_points(origin_images,np.asarray(pts_predict),pts_gt)
+            draw.draw_points(origin_images,np.asarray(pts_predict),pts_gt,self.mode)
             # for i in range(3):
             #     img = images[0][0]
             #     pts = np.asarray(np.round(pts0),np.int32)

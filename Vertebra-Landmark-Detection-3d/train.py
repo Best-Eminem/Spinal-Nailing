@@ -26,13 +26,20 @@ class Network(object):
         torch.manual_seed(317)
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         #heads表示的是最后一层输出的通道数
-        heads = {'hm': args.num_classes,
+        heads = {'hm': args.num_classes * 5,
+
+                 # 若第一步输出5个hm的话，使用下面这一部分
+                 # 'hm1': args.num_classes,
+                 # 'hm2': args.num_classes,
+                 # 'hm3': args.num_classes,
+                 # 'hm4': args.num_classes,
+                 # 'hm5': args.num_classes,
                  # 'reg': 3*args.num_classes,
                  # 'normal_vector': 3*args.num_classes
                  # 不需要计算corner offset
                  #'wh': 3*4
                  }
-
+        self.mode = args.mode
         self.model = spinal_net.SpineNet(heads=heads,
                                          pretrained=True,
                                          down_ratio=args.down_ratio,
@@ -43,7 +50,7 @@ class Network(object):
         # *******************************解码器 待修改,后面没用上？
         self.decoder = decoder.DecDecoder(K=args.K, conf_thresh=args.conf_thresh) #K为特征点的最大个数
         self.dataset = {'spinal': BaseDataset}
-        # self.writer = SummaryWriter(comment='SpineNet')
+        self.writer = SummaryWriter(logdir='spine_localisation_one',comment='SpineNet')
 
 
     def save_model(self, path, epoch, model):
@@ -115,7 +122,7 @@ class Network(object):
                                    input_h=args.input_h,
                                    input_w=args.input_w,
                                    input_s=args.input_s,
-                                   down_ratio=args.down_ratio,mode='spine_localisation')
+                                   down_ratio=args.down_ratio,mode=self.mode)
                  for x in ['train', 'val']}
 
         dsets_loader = {'train': torch.utils.data.DataLoader(dsets['train'],
@@ -143,7 +150,7 @@ class Network(object):
             epoch_loss = self.run_epoch(phase='train',
                                         data_loader=dsets_loader['train'],
                                         criterion=criterion)
-            # self.writer.add_scalar('Train', epoch_loss,epoch)
+            self.writer.add_scalar('TrainLoss', epoch_loss,epoch)
             train_loss.append(epoch_loss)
             #调整学习率
             scheduler.step(epoch)
@@ -151,10 +158,11 @@ class Network(object):
             epoch_loss = self.run_epoch(phase='val',
                                         data_loader=dsets_loader['val'],
                                         criterion=criterion)
+            self.writer.add_scalar('ValLoss', epoch_loss, epoch)
             val_loss.append(epoch_loss)
 
-            np.savetxt(os.path.join(save_path, 'train_loss.txt'), train_loss, fmt='%.6f')
-            np.savetxt(os.path.join(save_path, 'val_loss.txt'), val_loss, fmt='%.6f')
+            np.savetxt(os.path.join(save_path, 'train_loss.txt'), train_loss, fmt='%.9f')
+            np.savetxt(os.path.join(save_path, 'val_loss.txt'), val_loss, fmt='%.9f')
 
             if epoch % 10 == 0 or epoch ==1:
                 self.save_model(os.path.join(save_path, 'model_{}.pth'.format(epoch)), epoch, self.model)
@@ -171,10 +179,13 @@ class Network(object):
             self.model.eval()
         running_loss = 0.
         # 循环从dataloader中取出batchsize个数据
+        num = 0
         for data_dict in data_loader:
+            num += 1
             for name in data_dict:
                 # 将数据放入显存中
-                data_dict[name] = data_dict[name].to(device=self.device)
+                if name != 'img_id' and name!='spine_localisation_bottom_z':
+                    data_dict[name] = data_dict[name].to(device=self.device)
             if phase == 'train':
                 self.optimizer.zero_grad()
                 with torch.enable_grad():
@@ -199,6 +210,6 @@ class Network(object):
 
             running_loss += loss.item()
         epoch_loss = running_loss / len(data_loader)
-        print('{} loss: {}'.format(phase, epoch_loss))
+        print('{} {} CTs,loss: {}'.format(phase, num, epoch_loss))
         return epoch_loss
 

@@ -1,6 +1,7 @@
 import cv2
 import joblib
 import torch
+import os
 from matplotlib import pyplot as plt
 import numpy as np
 from scipy.io import loadmat
@@ -112,30 +113,48 @@ def point2area_distance(point1, point2, point3, point4):
 
 if __name__ == '__main__':
     # 初始化数据
-    point1 = [24, 10, 3]
-    point2 = [19, 17, 4]
-    point3 = [26, 15, 4]
-    point4 = [8, -4, -5]
-    #法向量[[  2   7 -39]]
-    # 计算点到面的距离
-
-    d1 = point2area_distance(point1, point2, point3, point4)  # s=8.647058823529413
-    print("点到面的距离s: " + str(d1))
-    # list = [[1,2,3],[4,5,6]]
-    # list = np.asarray(list)
-    # list = torch.from_numpy(list)
-    # list = list[:2,:2]*3
-    # list = list.data
-    # print('1')
-    # a = torch.tensor([[[1,2],[3,4]],[[5,6],[7,8]]])
-    # a = a.view(1,-1,1)
-    # print(a)
-    # b = torch.randint(0,4,(1,5))
-    # b = b.unsqueeze(2)
-    # b = b.expand(1,5,3)
-    # # print(b)
-    # tp = a.gather(1,b)
-    # # print(tp)
-    # b.requires_grad = True
-    # tp.backward()
-    # print(b.grad,a.grad)
+    # point1 = [24, 10, 3]
+    # point2 = [19, 17, 4]
+    # point3 = [26, 15, 4]
+    # point4 = [8, -4, -5]
+    # #法向量[[  2   7 -39]]
+    # # 计算点到面的距离
+    #
+    # d1 = point2area_distance(point1, point2, point3, point4)  # s=8.647058823529413
+    # print("点到面的距离s: " + str(d1))
+    # # list = [[1,2,3],[4,5,6]]
+    # # list = np.asarray(list)
+    # # list = torch.from_numpy(list)
+    # # list = list[:2,:2]*3
+    # # list = list.data
+    # # print('1')
+    # # a = torch.tensor([[[1,2],[3,4]],[[5,6],[7,8]]])
+    # # a = a.view(1,-1,1)
+    # # print(a)
+    # # b = torch.randint(0,4,(1,5))
+    # # b = b.unsqueeze(2)
+    # # b = b.expand(1,5,3)
+    # # # print(b)
+    # # tp = a.gather(1,b)
+    # # # print(tp)
+    # # b.requires_grad = True
+    # # tp.backward()
+    # # print(b.grad,a.grad)
+    # z= []
+    # for i in range(1,28):
+    #     path = os.path.join("E:\\ZN-CT-nii\\data\\gt", str(i)+'.nii.gz')
+    #     itk_img = sitk.ReadImage(path)
+    #     img = sitk.GetArrayFromImage(itk_img)
+    #     size = img.shape
+    #     z.append(size[0])
+    # for i in range(29,51):
+    #     path = os.path.join("E:\\ZN-CT-nii\\data\\gt", str(i)+'.nii.gz')
+    #     itk_img = sitk.ReadImage(path)
+    #     img = sitk.GetArrayFromImage(itk_img)
+    #     size = img.shape
+    #     z.append(size[0])
+ #    z = [356,594 ,438 ,438 ,332, 401, 424, 394, 433, 517, 363, 397, 554, 351, 279, 563, 388, 376,
+ # 389, 351, 440, 338, 357, 338, 371, 372, 336, 357, 291, 544, 413, 382, 419, 394, 457, 376,
+ # 313, 555, 413, 344, 369, 363, 313, 451, 351, 351, 401, 426, 407]
+ #    z = np.asarray(z)
+ #    print(z.mean())

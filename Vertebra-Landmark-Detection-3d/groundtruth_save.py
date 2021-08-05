@@ -11,7 +11,7 @@ def save_groundtruth(nii_nums,landmarks_num,full,mode,input_slice,input_h,input_
                                        input_s=input_slice,
                                        down_ratio=down_ratio,downsize=downsize)
     for i in range(nii_nums):
-        dict_series = dataset.preprocess(i,points_num = landmarks_num,full = full,mode=mode)
+        dict_series,img_id_num = dataset.preprocess(i,points_num = landmarks_num,full = full,mode=mode)
         #np.save('E:\\ZN-CT-nii\\groundtruth\\'+ str(i+1)+'.gt', dict)
         #for j in range(5):
         j = 0
@@ -19,10 +19,10 @@ def save_groundtruth(nii_nums,landmarks_num,full,mode,input_slice,input_h,input_
             #dict = dict_series[j]
             if full == True:
                 if mode == "spine_localisation":
-                    joblib.dump(dict, 'E:\\ZN-CT-nii\\groundtruth\\spine_localisation\\' + str(i + 1) + '.gt')
+                    joblib.dump(dict, 'E:\\ZN-CT-nii\\groundtruth\\spine_localisation\\' + img_id_num + '.gt')
                 elif mode == "landmark_detection":
-                    joblib.dump(dict, 'E:\\ZN-CT-nii\\groundtruth\\landmark_detection\\' + str(i + 1) + '.gt')
+                    joblib.dump(dict, 'E:\\ZN-CT-nii\\groundtruth\\landmark_detection\\' + img_id_num + '.gt')
             else:
-                joblib.dump(dict, 'E:\\ZN-CT-nii\\groundtruth\\'+ str(i+1)+'_l'+str(5-j)+'.gt')
+                joblib.dump(dict, 'E:\\ZN-CT-nii\\groundtruth\\'+ img_id_num+'_l'+str(5-j)+'.gt')
                 j += 1
 

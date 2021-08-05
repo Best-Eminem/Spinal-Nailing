@@ -72,7 +72,8 @@ def rearrange_pts(pts):
     return new_bboxes
 
 
-def processing_train(image, pts, points_num,image_h, image_w, image_s, down_ratio, aug_label, img_id,full):
+def processing_train(image, pts, points_num,image_h, image_w, image_s,
+                     down_ratio, aug_label, img_id,full,spine_localisation_eval_dict):
     # filter pts ----------------------------------------------------
     # h,w,c = image.shape
     # pts = filter_pts(pts, w, h)
@@ -123,17 +124,30 @@ def processing_train(image, pts, points_num,image_h, image_w, image_s, down_rati
             pts2 = transform.rescale_pts(pts_2, down_ratio=down_ratio) #将坐标大小缩小
             data_series.append((out_image,pts2))
     else:
-        bottom_z = pts_irc[:,0].min() - 5
+        spine_localisation_eval_pts = spine_localisation_eval_dict['pts']
+        spine_localisation_eval_center = spine_localisation_eval_dict['pts_center']
+
+        spine_localisation_bottom_z = spine_localisation_eval_dict['spine_localisation_bottom_z'][0]
+        spine_localisation_eval_center[0] += spine_localisation_bottom_z
+        bo = pts_irc[:,0].min()
+        spine_localisation_eval_pts[:,0] += spine_localisation_bottom_z
+        bottom_z = (spine_localisation_eval_pts[0][0]  - 25) if spine_localisation_eval_pts[0][0]  - 25 >=0 else 0
         bottom_z = np.floor(bottom_z).astype(np.int32)
-        top_z = pts_irc[:,0].max() + 5
+        top_z = spine_localisation_eval_pts[4][0]  + 25
         top_z = np.ceil(top_z).astype(np.int32)
         # 所有点的z轴坐标要改变
+
         pts_irc[:, 0] = pts_irc[:, 0] - bottom_z
+        # 根据预测的整个ct的中心点的x,y坐标取出原ct的一部分
+        pts_center_y = spine_localisation_eval_center[1]
+        pts_center_x = spine_localisation_eval_center[2]
         # 所有点的x，y轴坐标要减小
-        pts_irc[:, 1] = pts_irc[:, 1] - 55
-        pts_irc[:, 2] = pts_irc[:, 2] - 55
+        pts_irc[:, 1] = pts_irc[:, 1] - ((pts_center_y-200) if pts_center_y-200>=0 else 0)
+        pts_irc[:, 2] = pts_irc[:, 2] - ((pts_center_x-200) if pts_center_x-200>=0 else 0)
         # 截取包含5段脊椎的部分
-        image_array_section = image_array[bottom_z:top_z,55:455,55:455]
+        image_array_section = image_array[bottom_z:top_z,
+                                          (pts_center_y-200) if pts_center_y-200>=0 else 0:(pts_center_y+200) if pts_center_y+200<=512 else 512,
+                                          (pts_center_x-200) if pts_center_x-200>=0 else 0:(pts_center_x+200) if pts_center_x+200<=512 else 512]
         if aug_label:
             out_image, pts_2 = data_aug['train'](image_array_section.copy(), pts_irc)
         else:
@@ -141,9 +155,11 @@ def processing_train(image, pts, points_num,image_h, image_w, image_s, down_rati
 
         min = np.min(out_image)
         max = np.max(out_image)
+        temp = 2048
         # out_image = np.clip(out_image, a_min=0., a_max=255.)
         # 不需要调换顺序
-        out_image = out_image / np.max(abs(out_image))
+        #out_image = out_image / np.max(abs(out_image))
+        out_image = out_image / temp
         out_image = np.asarray(out_image, np.float32)
         intense_image = out_image.copy()
         intense_image[intense_image >= 0.1] += 0.2
@@ -154,7 +170,8 @@ def processing_train(image, pts, points_num,image_h, image_w, image_s, down_rati
         # pts = rearrange_pts(pts)
 
         pts2 = transform.rescale_pts(pts_2, down_ratio=down_ratio)
-        data_series.append((out_image,intense_image, pts2))
+
+        data_series.append((out_image,intense_image, pts2,img_id,bottom_z))
 
     #return np.asarray(out_image, np.float32), pts2
     return data_series
@@ -190,8 +207,8 @@ def generate_ground_truth(image,
     if pts_2[:,2].max()>image_w:
         print('w is big', pts_2[:,2].max())
 
-    if pts_2.shape[0]!=35:
-        print('ATTENTION!! image {} pts does not equal to 35!!! '.format(img_id))
+    if pts_2.shape[0]!=40:
+        print('ATTENTION!! image {} pts does not equal to 40!!! '.format(img_id))
 
     #for k in range(5):
     #pts_2为irc坐标
@@ -215,17 +232,18 @@ def generate_ground_truth(image,
         min_diameter = min(zhuigonggeng_left_landmarks_distance, zhuigonggeng_right_landmarks_distance)
     else:
         for i in range(5):
-            zhuigonggeng_left_landmarks_distance = np.sqrt(np.sum((pts[7*i+3, :] - pts[7*i+4, :]) ** 2))
+            zhuigonggeng_left_landmarks_distance = np.sqrt(np.sum((pts[8*i+4, :] - pts[8*i+5, :]) ** 2))
             # min([np.sqrt((pts[3,1]-pts[4,1])**2),
             #               np.sqrt((pts[5,1]-pts[6,1])**2)])
-            zhuigonggeng_right_landmarks_distance = np.sqrt(np.sum((pts[7*i+5, :] - pts[7*i+6, :]) ** 2))
-            cen_z1, cen_y1, cen_x1 = np.mean(pts[7*i+3:7*i+5], axis=0)
-            cen_z2, cen_y2, cen_x2 = np.mean(pts[7*i+5:7*i+7], axis=0)
+            zhuigonggeng_right_landmarks_distance = np.sqrt(np.sum((pts[8*i+6, :] - pts[8*i+7, :]) ** 2))
+            cen_z1, cen_y1, cen_x1 = np.mean(pts[8*i+4:8*i+6], axis=0)
+            cen_z2, cen_y2, cen_x2 = np.mean(pts[8*i+6:8*i+8], axis=0)
             # ct_landmark.append(pts[7*i+1])
-            # ct_landmark.append([cen_z1, cen_y1, cen_x1])
-            # ct_landmark.append([cen_z2, cen_y2, cen_x2])
-            ct_landmark.append(pts[7 * i])
-            ct_landmark.append(pts[7 * i + 2])
+            for j in range(4):
+                ct_landmark.append(pts[8 * i + j])
+
+            ct_landmark.append([cen_z1, cen_y1, cen_x1])
+            ct_landmark.append([cen_z2, cen_y2, cen_x2])
             diameter = min(zhuigonggeng_left_landmarks_distance, zhuigonggeng_right_landmarks_distance)
             min_diameter = min(min_diameter,diameter)
     # 椎弓更的landmark
@@ -292,7 +310,7 @@ def generate_ground_truth(image,
            # 'wh': wh,
            'reg_mask': reg_mask,
            'landmarks':ct_landmark_int,
-           'normal_vector': normal_vector
+           'normal_vector': normal_vector,
            }
     return ret
 
@@ -330,14 +348,17 @@ def spine_localisation_processing_train(image, pts, points_num,image_h, image_w,
                 'val': transform.Compose([transform.ConvertImgFloat(),
                                           transform.Resize(s=image_s, h=image_h, w=image_w)
                                           ])}
-    bottom_z = pts_irc[:,0].min() - 5
-    bottom_z = np.floor(bottom_z).astype(np.int32)
-    top_z = pts_irc[:,0].max() + 5
-    top_z = np.ceil(top_z).astype(np.int32)
+    #bottom_z = pts_irc[:,0].min() - 5
+    #bottom_z = np.floor(bottom_z).astype(np.int32)
+    bottom_z = 0
+    #top_z = pts_irc[:,0].max() + 5
+    #top_z = np.ceil(top_z).astype(np.int32)
     # 所有点的z轴坐标要改变
-    pts_irc[:, 0] = pts_irc[:, 0] - bottom_z
+    #pts_irc[:, 0] = pts_irc[:, 0] - bottom_z
     # 截取包含5段脊椎的部分
-    image_array_section = image_array[bottom_z:top_z,:,:]
+    #image_array_section = image_array[bottom_z:top_z,:,:]
+    image_array_section = image_array
+    bottom_z = np.asarray([bottom_z])
     if aug_label:
         out_image, pts_2 = data_aug['train'](image_array_section.copy(), pts_irc)
     else:
@@ -361,7 +382,7 @@ def spine_localisation_processing_train(image, pts, points_num,image_h, image_w,
     # pts = rearrange_pts(pts)
 
     pts2 = transform.rescale_pts(pts_2, down_ratio=down_ratio)
-    data_series.append((out_image,intense_image, pts2))
+    data_series.append((out_image,intense_image, pts2,img_id,bottom_z))
 
     #return np.asarray(out_image, np.float32), pts2
     return data_series
@@ -374,11 +395,12 @@ def spine_localisation_generate_ground_truth(image,
                           image_h,
                           image_w,
                           img_id,
+                          spine_localisation_bottom_z,
                           full,
                           downsize,down_ratio):
     #因为要downsize为1/2，所以要将参数大小除2取整数
 
-    hm = np.zeros((image_s//downsize, image_h//downsize, image_w//downsize), dtype=np.float32)
+    hm = np.zeros((5,image_s//downsize, image_h//downsize, image_w//downsize), dtype=np.float32)
     # print(hm.shape)
     # plt.imshow(hm[0, :, :])
     # plt.show()
@@ -432,7 +454,7 @@ def spine_localisation_generate_ground_truth(image,
             diameter = min(zhuigonggeng_left_landmarks_distance, zhuigonggeng_right_landmarks_distance)
             min_diameter = min(min_diameter,diameter)
     # 椎弓更的landmark
-    #要downsize，所以要除2
+    #要downsize，所以要除
     ct_landmark = np.asarray(ct_landmark, dtype=np.float32)/downsize
     ct_landmark_int = np.floor(ct_landmark).astype(np.int32)
     #radius = gaussian_radius((math.ceil(distance_y), math.ceil(distance_x)))
@@ -443,7 +465,7 @@ def spine_localisation_generate_ground_truth(image,
     image_h = image_h//downsize
     image_s = image_s//downsize
     for i in range(points_num):
-        hm = draw_umich_gaussian(hm, ct_landmark_int[i], radius=radius)
+        hm[i] = draw_umich_gaussian(hm[i], ct_landmark_int[i], radius=radius)
         # 每个landmark坐标值与ct长宽高形成约束？
         ind[i] = ct_landmark_int[i][2] + ct_landmark_int[i][1] * image_w + ct_landmark_int[i][0] * (image_w * image_h)
         reg[i] = (ct_landmark[i] - ct_landmark_int[i]) * downsize * down_ratio  #reg 为坐标点的误差，因为坐标相对于原始坐标缩小为原大小的1/8，所以要乘8
@@ -485,6 +507,7 @@ def spine_localisation_generate_ground_truth(image,
     # image = torch.from_numpy(image)
     # image = max_pool_downsize(image).numpy()
     intense_image = torch.from_numpy(intense_image)
+    intense_image = max_pool_downsize(intense_image)
     intense_image = max_pool_downsize(intense_image).numpy()
     #ct_landmark_int = ct_landmark_int//2
     ret = {'input': intense_image,
@@ -495,6 +518,7 @@ def spine_localisation_generate_ground_truth(image,
            # 'wh': wh,
            'reg_mask': reg_mask,
            'landmarks':ct_landmark_int,
-           'normal_vector': normal_vector
+           'normal_vector': normal_vector,
+           'spine_localisation_bottom_z':spine_localisation_bottom_z,
            }
     return ret

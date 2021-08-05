@@ -84,6 +84,8 @@ class BaseDataset(data.Dataset):
     def preprocess(self,index,points_num,full,mode):
         #此函数用来生成groundtruth
         img_id = self.img_ids[index]
+        print(img_id)
+        img_id_num = img_id[0:-7]
         image = self.load_image(index)  # image是 itk image格式，不是np格式
 
         aug_label = True
@@ -103,21 +105,12 @@ class BaseDataset(data.Dataset):
                                                     image_w=self.input_w,  # 512 or 400
                                                     down_ratio=self.down_ratio,
                                                     aug_label=aug_label,
-                                                    img_id=img_id,
+                                                    img_id=img_id_num,
                                                     full=full
                                                     )
         else:
-            #读取第一步的数据，并放入网络得到输出
-            # spine_location_data = joblib.load('E:\\ZN-CT-nii\\groundtruth\\spine_localisation\\' + img_id)
-            # spine_input = spine_location_data['input']
-            # save_path = 'weights_spinal'
-            # model = spinal_net.SpineNet(heads=heads,
-            #                             pretrained=True,
-            #                             down_ratio=args.down_ratio,
-            #                             final_kernel=1,
-            #                             head_conv=256)
-            # model = load_model(model, os.path.join(save_path, 'spine_location.pth'))
-            # model = self.model.to(self.device)
+            #读取第一个步骤的预测结果（5个椎体的中心点取均值）
+            spine_localisation_eval_dict = joblib.load('E:\\ZN-CT-nii\\eval\\spine_localisation_eval\\' + img_id_num + '.eval')
 
             data_series = pre_proc.processing_train(image=image,
                                                      pts=pts,
@@ -127,12 +120,13 @@ class BaseDataset(data.Dataset):
                                                      image_w=self.input_w,  # 512 or 400
                                                      down_ratio=self.down_ratio,
                                                      aug_label=aug_label,
-                                                     img_id=img_id,
-                                                     full = full
+                                                     img_id=img_id_num,
+                                                     full = full,
+                                                     spine_localisation_eval_dict = spine_localisation_eval_dict,
                                                      )
 
         data_dict_series = []
-        for out_image,intense_image,pts_2 in data_series:
+        for out_image,intense_image,pts_2,img_id_num,spine_localisation_bottom_z in data_series:
             if mode == "spine_localisation":
                 data_dict = pre_proc.spine_localisation_generate_ground_truth(image=out_image,
                                                            intense_image= intense_image,
@@ -141,7 +135,8 @@ class BaseDataset(data.Dataset):
                                                            image_s=self.input_s// self.down_ratio,
                                                            image_h=self.input_h// self.down_ratio,
                                                            image_w=self.input_w// self.down_ratio,
-                                                           img_id=img_id,
+                                                           img_id=img_id_num,
+                                                           spine_localisation_bottom_z = spine_localisation_bottom_z,
                                                            full = full,
                                                            downsize=self.downsize,down_ratio=self.down_ratio)
             else:
@@ -152,12 +147,12 @@ class BaseDataset(data.Dataset):
                                                            image_s=self.input_s // self.down_ratio,
                                                            image_h=self.input_h // self.down_ratio,
                                                            image_w=self.input_w // self.down_ratio,
-                                                           img_id=img_id,
+                                                           img_id=img_id_num,
                                                            full=full,
                                                            downsize=self.downsize, down_ratio=self.down_ratio)
             data_dict_series.append(data_dict)
 
-        return data_dict_series
+        return data_dict_series,img_id_num
 
     def __getitem__(self, index):
         # index记得改回来，不要-1,检查一下这里取到的img_id是正确的吗？
@@ -175,7 +170,7 @@ class BaseDataset(data.Dataset):
             #images = pre_proc.processing_test(image=self.load_image(index), input_h=self.input_h, input_w=self.input_w, input_s=self.input_s)
             images = data_dict['input'].reshape((1, 1, self.input_s,self.input_h, self.input_w))
             input_images = torch.from_numpy(images)
-            origin_images = data_dict['origin_image'].reshape((1, 1, self.input_s*2, self.input_h*2, self.input_w*2))
+            origin_images = data_dict['origin_image'].reshape((1, 1, self.input_s*self.downsize, self.input_h*self.downsize, self.input_w*self.downsize))
             origin_images = torch.from_numpy(origin_images)
             return {'images': input_images, 'img_id': img_id,'hm':data_dict['hm'],
                     'origin_images':origin_images,
@@ -188,7 +183,9 @@ class BaseDataset(data.Dataset):
             origin_images = data_dict['origin_image'].reshape(
                 (1, 1, self.input_s * 2, self.input_h * 2, self.input_w * 2))
             origin_images = torch.from_numpy(origin_images)
+            spine_localisation_bottom_z = data_dict['spine_localisation_bottom_z']
             return {'images': input_images, 'img_id': img_id, 'hm': data_dict['hm'],
+                    'spine_localisation_bottom_z':spine_localisation_bottom_z,
                     'origin_images': origin_images,
                     'reg_mask': data_dict['reg_mask'], 'ind': data_dict['ind'], 'reg': data_dict['reg'],
                     'landmarks': data_dict['landmarks']}

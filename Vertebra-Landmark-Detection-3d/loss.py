@@ -142,7 +142,17 @@ class LossAll(torch.nn.Module):
         # self.L_wh =  RegL1Loss()
     def forward(self, pr_decs, gt_batch):
 
-        hm_loss  = self.L_hm(pr_decs['hm'],  gt_batch['hm'])
+        hm_loss  = 0
+        #若第一步输出一个hm的话，使用这个
+        hm_loss = self.L_hm(pr_decs['hm'],  gt_batch['hm'])
+
+        # 若第一步输出5个hm的话，使用下面这一部分
+        # hm_loss += self.L_hm(pr_decs['hm1'][0][0],  gt_batch['hm'][0][0])
+        # hm_loss += self.L_hm(pr_decs['hm2'][0][0], gt_batch['hm'][0][1])
+        # hm_loss += self.L_hm(pr_decs['hm3'][0][0], gt_batch['hm'][0][2])
+        # hm_loss += self.L_hm(pr_decs['hm4'][0][0], gt_batch['hm'][0][3])
+        # hm_loss += self.L_hm(pr_decs['hm5'][0][0], gt_batch['hm'][0][4])
+
         #point_dis_loss = self.L_dis(pr_decs['hm'],pr_decs['reg'],gt_batch['landmarks'])
         # 不需要 corner offset
         # wh_loss  = self.L_wh(pr_decs['wh'], gt_batch['reg_mask'], gt_batch['ind'], gt_batch['wh'])
@@ -150,7 +160,7 @@ class LossAll(torch.nn.Module):
         #off_loss = self.L_off(pr_decs['reg'], gt_batch['reg_mask'], gt_batch['ind'], gt_batch['reg'])
         loss_dec = hm_loss #+ off_loss + normal_vector_loss #+ point_dis_loss
         #loss_dec = point_dis_loss
-        print('hm_loss= ',hm_loss.item()) #, ' off_loss= ',off_loss.item() , ' normal_vector_loss= ',normal_vector_loss.item())
+        print('hm_loss= ',loss_dec.item()) #, ' off_loss= ',off_loss.item() , ' normal_vector_loss= ',normal_vector_loss.item())
         return loss_dec
 
     # def backward(self,result):
