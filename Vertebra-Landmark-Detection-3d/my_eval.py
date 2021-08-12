@@ -1,3 +1,4 @@
+import joblib
 import torch
 import numpy as np
 
@@ -158,6 +159,7 @@ class Network(object):
         # out_image = out_image / np.max(abs(out_image))
         out_image = out_image / temp
         out_image = np.asarray(out_image, np.float32)
+        joblib.dump(out_image, 'E:\\ZN-CT-nii\\my_eval\\'+CT)
         intense_image = out_image.copy()
         intense_image[intense_image >= 0.1] += 0.2
         intense_image[intense_image > 1] = 1

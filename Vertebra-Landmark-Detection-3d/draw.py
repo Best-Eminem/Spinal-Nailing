@@ -52,7 +52,7 @@ def draw_points(img_series,pts2,pts_gt,mode):
         y_axis_gt = int(pt_gt[1])
         x_axis_gt = int(pt_gt[2])
         if mode == 'spine_localisation':
-            tp = np.full((136, 512), -1, dtype=np.float32)
+            tp = np.full((56, 512), -1, dtype=np.float32)
         else:
             tp = np.full((80, 400), -1, dtype=np.float32)
         ori_image_regress_z = img_series_a[z_axis]
@@ -70,9 +70,9 @@ def draw_points(img_series,pts2,pts_gt,mode):
 
         if mode == 'spine_localisation':
             cv2.circle(ori_image_regress_z, (x_axis, y_axis), 2, color_255, -1, 1)
-            cv2.circle(ori_image_regress_x, (y_axis, z_axis + 136), 2, color_255, -1, 1)
+            cv2.circle(ori_image_regress_x, (y_axis, z_axis + 56), 2, color_255, -1, 1)
             cv2.circle(ori_image_regress_z_gt, (x_axis_gt, y_axis_gt), 2, color_255, -1, 1)  # 画gt点
-            cv2.circle(ori_image_regress_x_gt, (y_axis_gt, z_axis_gt + 136), 2, color_255, -1, 1)  # 画gt点
+            cv2.circle(ori_image_regress_x_gt, (y_axis_gt, z_axis_gt + 56), 2, color_255, -1, 1)  # 画gt点
         else:
             cv2.circle(ori_image_regress_z, (x_axis, y_axis), 2, color_255, -1, 1)
             cv2.circle(ori_image_regress_x, (y_axis, z_axis + 80), 2, color_255, -1, 1)

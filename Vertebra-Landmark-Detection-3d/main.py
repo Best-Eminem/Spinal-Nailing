@@ -56,4 +56,4 @@ if __name__ == '__main__':
         # is_object.eval_three_angles(args, save=False)
     elif args.phase == 'my_eval':
         is_object = my_eval.Network(args)
-        is_object.eval(args,save = False,CT = "40.nii.gz")
+        is_object.eval(args,save = False,CT = "36.nii.gz")
