@@ -74,7 +74,7 @@ class Network(object):
 
 
     def test(self, args, save):
-        save_path = 'weights_'+args.dataset
+        save_path = 'E:\\Spinal-Nailing\\weights_'+args.dataset
         self.model = self.load_model(self.model, os.path.join(save_path, args.resume))
         self.model = self.model.to(self.device)
         #不启用 Batch Normalization 和 Dropout。

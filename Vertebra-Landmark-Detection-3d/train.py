@@ -96,7 +96,7 @@ class Network(object):
     def train_network(self, args):
 
         # args.dataset = 'spinal'
-        save_path = 'weights_'+args.dataset
+        save_path = 'E:\\Spinal-Nailing\\weights_'+args.dataset
         if not os.path.exists(save_path):
             os.mkdir(save_path)
         self.optimizer = torch.optim.Adam(self.model.parameters(), args.init_lr)

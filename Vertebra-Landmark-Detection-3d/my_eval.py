@@ -51,7 +51,7 @@ class Network(object):
         return model
 
     def eval(self, args, save,CT):
-        save_path = 'weights_'+args.dataset
+        save_path = 'E:\\Spinal-Nailing\\weights_'+args.dataset
         self.model = self.load_model(self.model, os.path.join(save_path, 'spine_localisation//one output//model_150.pth'))
         self.model = self.model.to(self.device)
         #不启用 Batch Normalization 和 Dropout。
