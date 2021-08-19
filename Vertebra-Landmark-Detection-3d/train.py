@@ -16,9 +16,11 @@ def collater(data):
         out_data_dict[name] = []
     for sample in data:
         for name in sample:
-            out_data_dict[name].append(torch.from_numpy(sample[name]))
+            if name !='itk_information':
+                out_data_dict[name].append(torch.from_numpy(sample[name]))
     for name in out_data_dict:
-        out_data_dict[name] = torch.stack(out_data_dict[name], dim=0)
+        if name != 'itk_information':
+            out_data_dict[name] = torch.stack(out_data_dict[name], dim=0)
     return out_data_dict
 
 class Network(object):
@@ -184,7 +186,7 @@ class Network(object):
             num += 1
             for name in data_dict:
                 # 将数据放入显存中
-                if name != 'img_id' and name!='spine_localisation_bottom_z':
+                if name != 'img_id' and name!='itk_information':
                     data_dict[name] = data_dict[name].to(device=self.device)
             if phase == 'train':
                 self.optimizer.zero_grad()

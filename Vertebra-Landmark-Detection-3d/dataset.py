@@ -8,6 +8,8 @@ import cv2
 from scipy.io import loadmat
 import numpy as np
 import SimpleITK as sitk
+from matplotlib import pyplot as plt
+import transform
 from xyz2irc_irc2xyz import xyz2irc
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 # 重新排列64个点的顺序，按此规则每次重排4个点：上左，上右，下左，下右
@@ -87,6 +89,15 @@ class BaseDataset(data.Dataset):
         print(img_id)
         img_id_num = img_id[0:-7]
         image = self.load_image(index)  # image是 itk image格式，不是np格式
+        spacing = image.GetSpacing() #获取体素的大小
+        origin = image.GetOrigin() #获取CT的起点位置
+        size = image.GetSize()#获取CT的大小
+        direction = image.GetDirection()#获取C的方向
+        itk_information = {}
+        itk_information['spacing'] = spacing
+        itk_information['origin'] = origin
+        itk_information['size'] = size
+        itk_information['direction'] = direction
 
         aug_label = True
         # 返回shape为(35，3)的labels列表,排列方式为(z,y,x)
@@ -106,6 +117,7 @@ class BaseDataset(data.Dataset):
                                                     down_ratio=self.down_ratio,
                                                     aug_label=aug_label,
                                                     img_id=img_id_num,
+                                                    itk_information=itk_information,
                                                     full=full
                                                     )
         else:
@@ -126,7 +138,7 @@ class BaseDataset(data.Dataset):
                                                      )
 
         data_dict_series = []
-        for out_image,intense_image,pts_2,img_id_num,spine_localisation_bottom_z in data_series:
+        for out_image,intense_image,pts_2,spacing, img_id_num in data_series:
             if mode == "spine_localisation":
                 data_dict = pre_proc.spine_localisation_generate_ground_truth(image=out_image,
                                                            intense_image= intense_image,
@@ -136,7 +148,7 @@ class BaseDataset(data.Dataset):
                                                            image_h=self.input_h// self.down_ratio,
                                                            image_w=self.input_w// self.down_ratio,
                                                            img_id=img_id_num,
-                                                           spine_localisation_bottom_z = spine_localisation_bottom_z,
+                                                           itk_information = itk_information,
                                                            full = full,
                                                            downsize=self.downsize,down_ratio=self.down_ratio)
             else:
@@ -181,15 +193,68 @@ class BaseDataset(data.Dataset):
             images = data_dict['input'].reshape((1, 1, self.input_s, self.input_h, self.input_w))
             input_images = torch.from_numpy(images)
             origin_images = data_dict['origin_image'].reshape(
-                (1, 1, self.input_s * 2, self.input_h * 2, self.input_w * 2))
+                (1, 1, self.input_s * self.downsize, self.input_h * self.downsize, self.input_w * self.downsize))
             origin_images = torch.from_numpy(origin_images)
-            spine_localisation_bottom_z = data_dict['spine_localisation_bottom_z']
             return {'images': input_images, 'img_id': img_id, 'hm': data_dict['hm'],
-                    'spine_localisation_bottom_z':spine_localisation_bottom_z,
                     'origin_images': origin_images,
                     'reg_mask': data_dict['reg_mask'], 'ind': data_dict['ind'], 'reg': data_dict['reg'],
                     'landmarks': data_dict['landmarks']}
 
+        elif self.phase =='train':
+            if self.mode == 'spine_localisation':
+                data_dict = joblib.load('E:\\ZN-CT-nii\\groundtruth\\spine_localisation\\'+ img_id)
+                input = data_dict['input'].copy()[0]
+                itk_image = sitk.GetImageFromArray(input)
+
+                itk_information = data_dict['itk_information']
+                spacing = itk_information['spacing']
+                origin = np.array(itk_information['origin'])
+                size = itk_information['size']
+                direction = itk_information['direction']
+
+                hm = data_dict['hm'].copy()
+                # hm1 = data_dict['hm'].copy()
+                # hm[hm == 0] = 1
+                # hm1[hm1 == 0] = 1
+                itk_image.SetDirection(direction)
+                itk_image.SetOrigin(tuple((origin / 4).tolist()))
+                itk_image.SetSpacing(spacing)
+
+                hm_itk = []
+                for i in range(hm.shape[0]):
+                    hm_tp = sitk.GetImageFromArray(hm[i])
+                    hm_tp.SetOrigin(tuple((origin / 8).tolist()))
+                    hm_tp.SetSpacing(spacing)
+                    hm_tp.SetDirection(direction)
+                    hm_itk.append(hm_tp)
+                # itk_hm = sitk.GetImageFromArray(hm)
+
+                center = origin + np.array(size) * np.array(spacing) * 0.5
+                now_shape = np.array(list(input.shape)[-1::-1])
+                center = center / size * now_shape
+                aug = {'train': transform.Compose([#transform.RandomTranslation(dim=3, offset=[5] * 3, spacing=spacing),
+                                                   #transform.RandomRotation(dim=3, angles=[15] * 3, center=center),
+                                                   # 随机旋转
+                                                   #transform.RandomScale(dim=3, scale_factor=0.15, center=center),
+                                                   # 随机放缩
+                                                   transform.PhotometricDistort()
+                                                   ])}
+                img_array, hm_array = aug['train'](itk_image, hm_itk)
+                # img_array = sitk.GetArrayFromImage(img_array)
+                # hm_array = sitk.GetArrayFromImage(hm)
+                data_dict['hm'] = np.asarray(hm_array)
+                data_dict['input'] = img_array.reshape(1, img_array.shape[0], img_array.shape[1], img_array.shape[2])
+                # for i in range(0, hm_array[0].shape[0] + 1, 1):
+                #     plt.imshow(img_array[i * 2])
+                #     # plt.imshow(hm1[0][i])
+                #     plt.show()
+                #     plt.imshow(hm_array[0][i])
+                #     plt.show()
+            elif self.mode == 'landmark_detection':
+                data_dict = joblib.load('E:\\ZN-CT-nii\\groundtruth\\landmark_detection\\'+ img_id)
+            else:
+                data_dict = joblib.load('E:\\ZN-CT-nii\\groundtruth\\spine_segmentation\\' + img_id)
+            return data_dict
         else:
             if self.mode == 'spine_localisation':
                 data_dict = joblib.load('E:\\ZN-CT-nii\\groundtruth\\spine_localisation\\'+ img_id)
@@ -197,6 +262,7 @@ class BaseDataset(data.Dataset):
                 data_dict = joblib.load('E:\\ZN-CT-nii\\groundtruth\\landmark_detection\\'+ img_id)
             else:
                 data_dict = joblib.load('E:\\ZN-CT-nii\\groundtruth\\spine_segmentation\\' + img_id)
+            print(1111)
             return data_dict
 
     def __len__(self):

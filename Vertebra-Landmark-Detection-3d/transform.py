@@ -28,45 +28,56 @@ def resize_image_itk(itkimage, newSize, resamplemethod=sitk.sitkNearestNeighbor)
 def rescale_pts(pts, down_ratio):
     return np.asarray(pts, np.float32)/float(down_ratio)
 
+def float_uniform(low, high, size=None):
+    """
+    Create random floats in the lower and upper bounds - uniform distribution.
+    :param low: Minimum value.
+    :param high: Maximum value.
+    :param size: If None, function returns a single value, otherwise random values in size of shape.
+    :return: The random values.
+    """
+    values = np.random.uniform(low=float(low), high=float(high), size=size)
+    if isinstance(values, np.ndarray):
+        return values.astype(np.float32)
+    return float(values)
 
 class Compose(object):
     def __init__(self, transforms):
         self.transforms = transforms
 
-    def __call__(self, img, pts):
+    def __call__(self, img, hm):
         for t in self.transforms:
-            img, pts = t(img, pts)
-        return img, pts
+            img, hm = t(img, hm)
+        return img, hm
 
 class ConvertImgFloat(object):
     def __call__(self, img, pts):
         return img.astype(np.float32), pts.astype(np.float32)
 
 class RandomContrast(object):
-    def __init__(self, lower=0.5, upper=1.5):
+    def __init__(self, lower=0.75, upper=1.25):
         self.lower = lower
         self.upper = upper
         assert self.upper >= self.lower, "contrast upper must be >= lower."
         assert self.lower >= 0, "contrast lower must be non-negative."
 
-    def __call__(self, img, pts):
-        if random.randint(2):
-            alpha = random.uniform(self.lower, self.upper)
-            img *= alpha
-        return img, pts
+    def __call__(self, img,hm):
+        #if random.randint(2):
+        alpha = random.uniform(self.lower, self.upper)
+        img *= alpha
+        return img,hm
 
 
 class RandomBrightness(object):
-    def __init__(self, delta=32):
-        assert delta >= 0.0
-        assert delta <= 255.0
-        self.delta = delta
+    def __init__(self, lower=-0.25, upper=0.25):
+        self.lower = lower
+        self.upper = upper
 
-    def __call__(self, img, pts):
-        if random.randint(2):
-            delta = random.uniform(-self.delta, self.delta)
-            img += delta
-        return img, pts
+    def __call__(self, img,hm):
+        #if random.randint(2):
+        delta = random.uniform(self.lower, self.upper)
+        img += delta
+        return img,hm
 
 class SwapChannels(object):
     def __init__(self, swaps):
@@ -95,15 +106,17 @@ class PhotometricDistort(object):
         self.rb = RandomBrightness()#将图像中所有数随机加上一个数
         # self.rln = RandomLightingNoise()# 改变图像中的通道顺序,ct只有1个通道，因此不考虑
 
-    def __call__(self, img, pts):
-        img, pts = self.rb(img, pts)
+    def __call__(self, img, hm):
+        img_array = sitk.GetArrayFromImage(img)
         if random.randint(2):
-            distort = self.pd
-        else:
-            distort = self.pd
-        img, pts = distort(img, pts)
+            img_array,hm = self.rb(img_array, hm)
+        if random.randint(2):
+            img_array,hm = self.pd(img_array, hm)
         # img, pts = self.rln(img, pts)
-        return img, pts
+        #img = sitk.GetImageFromArray(img_array)
+        for i in range(len(hm)):
+            hm[i] = sitk.GetArrayFromImage(hm[i])
+        return img_array, hm
 
 
 class Expand(object):
@@ -203,3 +216,75 @@ class Resize(object):
         pts[:, 2] = pts[:, 2]/w*self.pts_dsize[2]
         img = resize_image_itk(sitk.GetImageFromArray(img), newSize=self.img_dsize, resamplemethod=sitk.sitkLinear)
         return sitk.GetArrayFromImage(img), pts
+
+class RandomTranslation(object):
+    def __init__(self, dim, offset,spacing):
+
+        self.random_offset = offset
+        self.current_offset = np.asarray([float_uniform(-self.random_offset[i], self.random_offset[i])
+                          for i in range(len(self.random_offset))])
+        self.spacing = np.asarray(spacing)
+        self.current_offset = self.current_offset * spacing
+        t = sitk.AffineTransform(dim)
+        t_hm = sitk.AffineTransform(dim)
+        self.offset_with_used_dimensions_only = [o if used else 0 for used, o in zip([True,True,False], self.current_offset)]
+        self.offset_with_used_dimensions_only_hm = [o/2 if used else 0 for used, o in zip([True,True,False], self.current_offset)]
+        #print(self.offset_with_used_dimensions_only)
+        t.Translate(self.offset_with_used_dimensions_only)
+        t_hm.Translate(self.offset_with_used_dimensions_only_hm)
+
+        self.get_translate_transform = t
+        self.get_translate_transform_hm = t_hm
+    def __call__(self, img, hm):
+        if random.randint(2):
+            img = sitk.Resample(img,self.get_translate_transform)
+            for i in range(len(hm)):
+                hm[i] = sitk.Resample(hm[i],self.get_translate_transform_hm)
+        return img, hm
+
+
+class RandomRotation(object):
+    def __init__(self, dim, angles, center):
+        self.center = center
+        radian = np.asarray(angles) * np.pi / 180
+        self.random_angles = radian
+        angle = float_uniform(-self.random_angles[0], self.random_angles[0])
+        self.current_angles = [angle] * dim
+        r = sitk.AffineTransform(dim)
+        r.SetCenter(center)
+        #print(self.current_angles)
+        #t.Rotate(1, 2, angle=self.current_angles[0])
+        # rotate about y axis
+        #t.Rotate(0, 2, angle=self.current_angles[1])
+        # rotate about z axis
+        r.Rotate(0, 1, angle=self.current_angles[2])
+        self.get_rotation_transform = r
+
+    def __call__(self, img, hm):
+        if random.randint(2):
+            img = sitk.Resample(img, self.get_rotation_transform)
+            self.get_rotation_transform.SetCenter(self.center / 2)
+            for i in range(len(hm)):
+                hm[i] = sitk.Resample(hm[i],self.get_rotation_transform)
+
+        return img, hm
+
+class RandomScale(object):
+    def __init__(self, dim, scale_factor, center):
+        self.center = center
+        self.random_scale = scale_factor
+        scale = 1.0 + float_uniform(-self.random_scale, self.random_scale)
+        self.current_scale = [scale] * 3
+        #print(self.current_scale)
+        s = sitk.AffineTransform(dim)
+        s.SetCenter(center)
+        s.Scale(self.current_scale)
+        self.get_scale_transform = s
+    def __call__(self, img,hm):
+        if random.randint(2):
+            img = sitk.Resample(img, self.get_scale_transform)
+            self.get_scale_transform.SetCenter(self.center / 2)
+            for i in range(len(hm)):
+                hm[i] = sitk.Resample(hm[i],self.get_scale_transform)
+                #hm = sitk.Resample(hm, self.get_scale_transform)
+        return img,hm

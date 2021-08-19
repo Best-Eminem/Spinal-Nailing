@@ -26,14 +26,14 @@ class Network(object):
         torch.manual_seed(317)
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         # heads表示的是最后一层输出的通道数
-        heads = {#'hm': args.num_classes * 5,
+        heads = {'hm': args.num_classes * 5,
 
                  # 若第一步输出5个hm的话，使用下面这一部分
-                 'hm1': args.num_classes,
-                 'hm2': args.num_classes,
-                 'hm3': args.num_classes,
-                 'hm4': args.num_classes,
-                 'hm5': args.num_classes,
+                 # 'hm1': args.num_classes,
+                 # 'hm2': args.num_classes,
+                 # 'hm3': args.num_classes,
+                 # 'hm4': args.num_classes,
+                 # 'hm5': args.num_classes,
                  # 'reg': 3*args.num_classes,
                  # 'normal_vector': 3 * args.num_classes,
                  #'wh': 3*4,
@@ -124,14 +124,14 @@ class Network(object):
             print('processing {}/{} image ... {}'.format(cnt+1, len(data_loader), img_id))
             with torch.no_grad():
                 output = self.model(images)
-                #hm = output['hm']
+                hm = output['hm']
                 # 若第一步输出5个hm的话，使用下面这一部分
-                hm1 = output['hm1']
-                hm2 = output['hm2']
-                hm3 = output['hm3']
-                hm4 = output['hm4']
-                hm5 = output['hm5']
-                hm = [hm1,hm2,hm3,hm4,hm5]
+                # hm1 = output['hm1']
+                # hm2 = output['hm2']
+                # hm3 = output['hm3']
+                # hm4 = output['hm4']
+                # hm5 = output['hm5']
+                # hm = [hm1,hm2,hm3,hm4,hm5]
 
                 #wh = output['wh']
                 #reg = output['reg']
@@ -142,7 +142,7 @@ class Network(object):
             #将heatmap还原为坐标
 
             if self.mode == 'spine_localisation':
-                #hm = hm[0]
+                hm = hm[0]
                 pts_predict = []
                 for i in range(5):
                     pts2 = self.decoder.ctdet_decode(hm[i].reshape((1, 1, int(args.input_s/self.down_ratio), int(args.input_h/self.down_ratio), int(args.input_w/self.down_ratio))), reg, True,down_ratio=self.down_ratio,downsize=self.downsize)

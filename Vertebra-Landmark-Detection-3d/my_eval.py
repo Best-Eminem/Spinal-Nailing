@@ -18,12 +18,12 @@ class Network(object):
         torch.manual_seed(317)
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         # heads表示的是最后一层输出的通道数
-        heads = {#'hm': 5,
-                 'hm1': args.num_classes,
-                 'hm2': args.num_classes,
-                 'hm3': args.num_classes,
-                 'hm4': args.num_classes,
-                 'hm5': args.num_classes,
+        heads = {'hm': 5,
+                 # 'hm1': args.num_classes,
+                 # 'hm2': args.num_classes,
+                 # 'hm3': args.num_classes,
+                 # 'hm4': args.num_classes,
+                 # 'hm5': args.num_classes,
                  # 'reg': 3*args.num_classes,
                  # 'normal_vector': 3 * args.num_classes,
                  #'wh': 3*4,
@@ -52,7 +52,7 @@ class Network(object):
 
     def eval(self, args, save,CT):
         save_path = 'weights_'+args.dataset
-        self.model = self.load_model(self.model, os.path.join(save_path, 'spine_localisation//five output//model_150.pth'))
+        self.model = self.load_model(self.model, os.path.join(save_path, 'spine_localisation//one output//model_150.pth'))
         self.model = self.model.to(self.device)
         #不启用 Batch Normalization 和 Dropout。
         self.model.eval()
@@ -94,13 +94,14 @@ class Network(object):
         intense_image = intense_image.to(device=self.device)
 
         output = self.model(intense_image.reshape((1,1,100,128,128)))
-        hm1 = output['hm1']
-        hm2 = output['hm2']
-        hm3 = output['hm3']
-        hm4 = output['hm4']
-        hm5 = output['hm5']
-        hm = [hm1,hm2,hm3,hm4,hm5]
-        #hm = hm[0]
+        hm = output['hm']
+        # hm1 = output['hm1']
+        # hm2 = output['hm2']
+        # hm3 = output['hm3']
+        # hm4 = output['hm4']
+        # hm5 = output['hm5']
+        # hm = [hm1,hm2,hm3,hm4,hm5]
+        hm = hm[0]
         pts_predict = []
         reg = 0
         for i in range(5):

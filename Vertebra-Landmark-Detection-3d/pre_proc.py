@@ -127,10 +127,10 @@ def processing_train(image, pts, points_num,image_h, image_w, image_s,
         spine_localisation_eval_pts = spine_localisation_eval_dict['pts']
         spine_localisation_eval_center = spine_localisation_eval_dict['pts_center']
 
-        spine_localisation_bottom_z = spine_localisation_eval_dict['spine_localisation_bottom_z'][0]
-        spine_localisation_eval_center[0] += spine_localisation_bottom_z
+        # spine_localisation_bottom_z = spine_localisation_eval_dict['spine_localisation_bottom_z'][0]
+        # spine_localisation_eval_center[0] += spine_localisation_bottom_z
         bo = pts_irc[:,0].min()
-        spine_localisation_eval_pts[:,0] += spine_localisation_bottom_z
+        # spine_localisation_eval_pts[:,0] += spine_localisation_bottom_z
         bottom_z = (spine_localisation_eval_pts[0][0]  - 25) if spine_localisation_eval_pts[0][0]  - 25 >=0 else 0
         bottom_z = np.floor(bottom_z).astype(np.int32)
         top_z = spine_localisation_eval_pts[4][0]  + 25
@@ -326,7 +326,7 @@ def generate_ground_truth(image,
 
 
 
-def spine_localisation_processing_train(image, pts, points_num,image_h, image_w, image_s, down_ratio, aug_label, img_id,full):
+def spine_localisation_processing_train(image, pts, points_num,image_h, image_w, image_s, down_ratio, aug_label, img_id,itk_information, full):
     # filter pts ----------------------------------------------------
     # h,w,c = image.shape
     # pts = filter_pts(pts, w, h)
@@ -375,14 +375,14 @@ def spine_localisation_processing_train(image, pts, points_num,image_h, image_w,
     out_image = np.asarray(out_image, np.float32)
     intense_image = out_image.copy()
     # intense_image[intense_image >= 0.1] += 0.2
-    intense_image[intense_image > 1] = 1
+    #intense_image[intense_image > 1] = 1
     intense_image = np.reshape(intense_image, (1, image_s, image_h, image_w))
     out_image = np.reshape(out_image, (1, image_s, image_h, image_w))
     # out_image = np.transpose(out_image / 255. - 0.5, (0,1,2))
     # pts = rearrange_pts(pts)
 
     pts2 = transform.rescale_pts(pts_2, down_ratio=down_ratio)
-    data_series.append((out_image,intense_image, pts2,img_id,bottom_z))
+    data_series.append((out_image,intense_image, pts2,itk_information,img_id))
 
     #return np.asarray(out_image, np.float32), pts2
     return data_series
@@ -395,7 +395,7 @@ def spine_localisation_generate_ground_truth(image,
                           image_h,
                           image_w,
                           img_id,
-                          spine_localisation_bottom_z,
+                          itk_information,
                           full,
                           downsize,down_ratio):
     #因为要downsize为1/2，所以要将参数大小除2取整数
@@ -519,6 +519,6 @@ def spine_localisation_generate_ground_truth(image,
            'reg_mask': reg_mask,
            'landmarks':ct_landmark_int,
            'normal_vector': normal_vector,
-           'spine_localisation_bottom_z':spine_localisation_bottom_z,
+           'itk_information':itk_information
            }
     return ret

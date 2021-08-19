@@ -113,6 +113,8 @@ def point2area_distance(point1, point2, point3, point4):
 
 if __name__ == '__main__':
     # 初始化数据
+    pass
+
     # point1 = [24, 10, 3]
     # point2 = [19, 17, 4]
     # point3 = [26, 15, 4]
