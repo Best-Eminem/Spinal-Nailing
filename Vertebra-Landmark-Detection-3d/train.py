@@ -124,7 +124,9 @@ class Network(object):
                                    input_h=args.input_h,
                                    input_w=args.input_w,
                                    input_s=args.input_s,
-                                   down_ratio=args.down_ratio,mode=self.mode)
+                                   down_ratio=args.down_ratio,
+                                   downsize=args.down_size,
+                                   mode=self.mode)
                  for x in ['train', 'val']}
 
         dsets_loader = {'train': torch.utils.data.DataLoader(dsets['train'],

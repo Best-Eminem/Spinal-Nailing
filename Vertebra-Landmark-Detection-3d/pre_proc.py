@@ -327,10 +327,6 @@ def generate_ground_truth(image,
 
 
 def spine_localisation_processing_train(image, pts, points_num,image_h, image_w, image_s, down_ratio, aug_label, img_id,itk_information, full):
-    # filter pts ----------------------------------------------------
-    # h,w,c = image.shape
-    # pts = filter_pts(pts, w, h)
-    # ---------------------------------------------------------------
     pts = np.array(pts)
     pts = pts.astype('float32')
     pts_irc = []  # ['index', 'row', 'col']

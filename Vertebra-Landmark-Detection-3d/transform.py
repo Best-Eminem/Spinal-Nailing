@@ -41,6 +41,19 @@ def float_uniform(low, high, size=None):
         return values.astype(np.float32)
     return float(values)
 
+def int_uniform(low, high, size=None):
+    """
+    Create random ints in the lower and upper bounds - uniform distribution.
+    :param low: Minimum value.
+    :param high: Maximum value.
+    :param size: If None, function returns a single value, otherwise random values in size of shape.
+    :return: The random values.
+    """
+    values = np.random.randint(low=low, high=high, size=size)
+    if isinstance(values, np.ndarray):
+        return values.astype(np.int32)
+    return int(values)
+
 class Compose(object):
     def __init__(self, transforms):
         self.transforms = transforms
@@ -204,87 +217,131 @@ class RandomMirror_h(object):
         return img, pts
 
 
-class Resize(object):
-    def __init__(self, s, h, w):
-        self.pts_dsize = (s,h,w)
-        self.img_dsize = (w,h,s)
-
-    def __call__(self, img, pts):
+class Resize():
+    def resize(img, pts,input_s,input_h,input_w):
         s,h,w = img.shape
-        pts[:, 0] = pts[:, 0]/s*self.pts_dsize[0]
-        pts[:, 1] = pts[:, 1]/h*self.pts_dsize[1]
-        pts[:, 2] = pts[:, 2]/w*self.pts_dsize[2]
-        img = resize_image_itk(sitk.GetImageFromArray(img), newSize=self.img_dsize, resamplemethod=sitk.sitkLinear)
+        pts[:, 0] = pts[:, 0]/s*input_s
+        pts[:, 1] = pts[:, 1]/h*input_h
+        pts[:, 2] = pts[:, 2]/w*input_w
+        img = resize_image_itk(sitk.GetImageFromArray(img), newSize=[input_w,input_h,input_s], resamplemethod=sitk.sitkLinear)
         return sitk.GetArrayFromImage(img), pts
 
-class RandomTranslation(object):
-    def __init__(self, dim, offset,spacing):
-
-        self.random_offset = offset
-        self.current_offset = np.asarray([float_uniform(-self.random_offset[i], self.random_offset[i])
-                          for i in range(len(self.random_offset))])
-        self.spacing = np.asarray(spacing)
-        self.current_offset = self.current_offset * spacing
+class RandomTranslation():
+    def get(dim, offset):
+        random_offset = offset
+        #if random.randint(2):
+        #img = sitk.Resample(img,self.get_translate_transform)
+            #move points
+            # for i in range(3):
+            #     pts[:,i] = pts[:,i] + self.offset_with_pts[i]
+            # for i in range(len(hm)):
+            #     hm[i] = sitk.Resample(hm[i],self.get_translate_transform_hm)
+        current_offset = np.asarray([float_uniform(-random_offset[i], random_offset[i])
+                                          for i in range(len(random_offset))])
+        # self.spacing = np.asarray(spacing)
+        float_offset = current_offset  # * spacing
         t = sitk.AffineTransform(dim)
-        t_hm = sitk.AffineTransform(dim)
-        self.offset_with_used_dimensions_only = [o if used else 0 for used, o in zip([True,True,False], self.current_offset)]
-        self.offset_with_used_dimensions_only_hm = [o/2 if used else 0 for used, o in zip([True,True,False], self.current_offset)]
-        #print(self.offset_with_used_dimensions_only)
-        t.Translate(self.offset_with_used_dimensions_only)
-        t_hm.Translate(self.offset_with_used_dimensions_only_hm)
-
-        self.get_translate_transform = t
-        self.get_translate_transform_hm = t_hm
-    def __call__(self, img, hm):
-        if random.randint(2):
-            img = sitk.Resample(img,self.get_translate_transform)
-            for i in range(len(hm)):
-                hm[i] = sitk.Resample(hm[i],self.get_translate_transform_hm)
-        return img, hm
+        # t_hm = sitk.AffineTransform(dim)
+        offset_with_used_dimensions_only = [o if used else 0 for used, o in
+                                                 zip([True, True, False], float_offset)]
+        # self.offset_with_used_dimensions_only_hm = [o/2 if used else 0 for used, o in zip([True,True,False], self.float_offset)]
+        # self.offset_with_pts = [int(o/2) if used else 0 for used, o in zip([True,True,False], self.current_offset)]
+        #print("平移变换（x,y,z）：",offset_with_used_dimensions_only)
+        # print(self.offset_with_pts)
+        t.Translate(offset_with_used_dimensions_only)
+        return t
 
 
 class RandomRotation(object):
-    def __init__(self, dim, angles, center):
-        self.center = center
-        radian = np.asarray(angles) * np.pi / 180
-        self.random_angles = radian
-        angle = float_uniform(-self.random_angles[0], self.random_angles[0])
-        self.current_angles = [angle] * dim
-        r = sitk.AffineTransform(dim)
-        r.SetCenter(center)
-        #print(self.current_angles)
-        #t.Rotate(1, 2, angle=self.current_angles[0])
-        # rotate about y axis
-        #t.Rotate(0, 2, angle=self.current_angles[1])
-        # rotate about z axis
-        r.Rotate(0, 1, angle=self.current_angles[2])
-        self.get_rotation_transform = r
+    def get(dim, random_angles):
+        random_angles = random_angles
+        # rotate by same random angle in each dimension
+        if len(random_angles) == 1:
+            angle = float_uniform(-random_angles[0], random_angles[0])
+            current_angles = [angle] * dim
+        else:
+            # rotate by individual angle in each dimension
+            current_angles = [float_uniform(-random_angles[i], random_angles[i])
+                                   for i in range(dim)]
+        #print("旋转（°）变换（x,y,z）：",current_angles)
+        radian = np.asarray(current_angles) * np.pi / 180
+        t = sitk.AffineTransform(dim)
+        if len(current_angles) == 1:
+            # 2D
+            t.Rotate(0, 1, angle=radian[0])
+        elif len(current_angles) > 1:
+            # 3D
+            # rotate about x axis
+            #t.Rotate(1, 2, angle=radian[0])
+            # rotate about y axis
+            #t.Rotate(0, 2, angle=radian[1])
+            # rotate about z axis
+            t.Rotate(0, 1, angle=radian[2])
 
-    def __call__(self, img, hm):
-        if random.randint(2):
-            img = sitk.Resample(img, self.get_rotation_transform)
-            self.get_rotation_transform.SetCenter(self.center / 2)
-            for i in range(len(hm)):
-                hm[i] = sitk.Resample(hm[i],self.get_rotation_transform)
+        return t
 
-        return img, hm
+class RandomScale():
+    def get(dim, random_scale,ignore_dim=None):
+        random_scale = random_scale
+        ignore_dim = ignore_dim or []
 
-class RandomScale(object):
-    def __init__(self, dim, scale_factor, center):
-        self.center = center
-        self.random_scale = scale_factor
-        scale = 1.0 + float_uniform(-self.random_scale, self.random_scale)
-        self.current_scale = [scale] * 3
-        #print(self.current_scale)
+        scale = 1.0 + float_uniform(-random_scale, random_scale)
+        current_scale = []
+        for i in range(dim):
+            if i in ignore_dim:
+                current_scale.append(1.0)
+            else:
+                current_scale.append(scale)
+       # print("放缩（°）变换（x,y,z）：", current_scale)
         s = sitk.AffineTransform(dim)
-        s.SetCenter(center)
-        s.Scale(self.current_scale)
-        self.get_scale_transform = s
-    def __call__(self, img,hm):
-        if random.randint(2):
-            img = sitk.Resample(img, self.get_scale_transform)
-            self.get_scale_transform.SetCenter(self.center / 2)
-            for i in range(len(hm)):
-                hm[i] = sitk.Resample(hm[i],self.get_scale_transform)
-                #hm = sitk.Resample(hm, self.get_scale_transform)
-        return img,hm
+        s.Scale(current_scale)
+        return s
+
+
+class InputCenterToOrigin():
+    """
+    A translation transformation which transforms the input image center to the origin.
+    """
+    def get(dim, itk_information):
+        """
+        Returns the sitk transform based on the given parameters.
+        :param kwargs: Must contain either 'image', or 'input_size' and 'input_spacing', which define the input image physical space.
+        :return: The sitk.AffineTransform().
+        """
+        input_size = itk_information['size']
+        input_spacing = itk_information['spacing']
+        input_direction = itk_information['direction']
+        input_origin = itk_information['origin']
+        # -1 is important, as it is always the center pixel.
+        input_size_half = [(input_size[i] - 1) * 0.5 for i in range(dim)]
+
+        input_center =  np.array(input_origin) + np.matmul(np.matmul(np.array(input_direction).reshape([dim, dim]), np.diag(input_spacing)), np.array(input_size_half))
+        t = sitk.AffineTransform(dim)
+        offset_with_used_dimensions_only = [o if used else 0 for used, o in zip([True,True,True], input_center)]
+        t.Translate(offset_with_used_dimensions_only)
+        return t
+
+
+class OriginToOutputCenter():
+    """
+        A translation transformation which transforms origin to the output image center.
+    """
+    def get(dim, itk_information):
+        """
+        Returns the sitk transform based on the given parameters.
+        :param kwargs: These parameters are given to self.get_output_center().
+        :return: The sitk.AffineTransform().
+        """
+        input_size = itk_information['size']
+        input_spacing = itk_information['spacing']
+        input_direction = itk_information['direction']
+        input_origin = itk_information['origin']
+        output_center = []
+        for i in range(dim):
+            # -1 is important, as it is always the center pixel.
+            output_center.append((input_size[i] - 1) * input_spacing[i] * 0.5)
+        negative_output_center = [-o for o in output_center]
+        t = sitk.AffineTransform(dim)
+        offset_with_used_dimensions_only = [o if used else 0 for used, o in zip([True]*3, negative_output_center)]
+        t.Translate(offset_with_used_dimensions_only)
+        return t

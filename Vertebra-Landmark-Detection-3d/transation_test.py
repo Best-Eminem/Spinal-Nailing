@@ -1,0 +1,442 @@
+import copy
+import os
+
+import torch
+import torch.utils.data as data
+from draw_3dgaussian import *
+import draw
+import numpy as np
+import SimpleITK as sitk
+import transform
+import torch.nn as nn
+
+def resample(input_image,
+             transform,
+             output_size,
+             output_spacing=None,
+             output_origin=None,
+             output_direction=None,
+             interpolator=None,
+             output_pixel_type=None,
+             default_pixel_value=None):
+    """
+    Resample a given input image according to a transform.
+    :param input_image: The input sitk image.
+    :param transform: The sitk transformation to apply to the resample filter
+    :param output_size: The image size in pixels of the output image.
+    :param output_spacing: The spacing in mm of the output image.
+    :param output_direction: The direction matrix of the output image.
+    :param default_pixel_value: The pixel value of pixels outside the image region.
+    :param output_origin: The output origin.
+    :param interpolator: The interpolation function. See get_sitk_interpolator() for possible values.
+    :param output_pixel_type: The output pixel type.
+    :return: The resampled image.
+    """
+    image_dim = input_image.GetDimension()
+    transform_dim = transform.GetDimension()
+    assert image_dim == transform_dim, 'image and transform dim must be equal, are ' + str(image_dim) + ' and ' + str(transform_dim)
+    output_spacing = output_spacing or [1] * image_dim
+    output_origin = output_origin or [0] * image_dim
+    output_direction = output_direction or np.eye(image_dim).flatten().tolist()
+    #interpolator = interpolator or 'linear'
+
+    sitk_interpolator =interpolator
+
+    # resample the image
+    resample_filter = sitk.ResampleImageFilter()
+    resample_filter.SetSize(output_size)
+    resample_filter.SetInterpolator(sitk_interpolator)
+    resample_filter.SetOutputSpacing(output_spacing)
+    resample_filter.SetOutputOrigin(output_origin)
+    resample_filter.SetOutputDirection(output_direction)
+    resample_filter.SetTransform(transform)
+    if default_pixel_value is not None:
+        resample_filter.SetDefaultPixelValue(default_pixel_value)
+    if output_pixel_type is None:
+        resample_filter.SetOutputPixelType(input_image.GetPixelID())
+    else:
+        resample_filter.SetOutputPixelType(output_pixel_type)
+
+    # perform resampling
+    output_image = resample_filter.Execute(input_image)
+
+    return output_image
+class BaseDataset(data.Dataset):
+    def __init__(self, data_dir, phase, input_h=None, input_w=None, input_s=None, down_ratio=4,downsize = 2,mode = None):
+        super(BaseDataset, self).__init__()
+        self.data_dir = data_dir
+        self.phase = phase
+        self.input_h = input_h
+        self.input_w = input_w
+        self.input_s = input_s
+        self.down_ratio = down_ratio
+        self.class_name = ['__background__', 'cell']
+        self.num_classes = 40 #原始表示68个特征点
+        self.img_dir = os.path.join(data_dir, 'data', self.phase)
+        self.img_ids = sorted(os.listdir(self.img_dir))
+        self.downsize = downsize
+        self.mode = mode
+
+    def load_image(self, index):
+        path = os.path.join(self.img_dir, self.img_ids[index])
+        itk_img = sitk.ReadImage(path)
+        # image = sitk.GetArrayFromImage(itk_img)
+        # image = cv2.imread(os.path.join(self.img_dir, self.img_ids[index]))
+        return itk_img
+
+    def load_gt_pts(self, landmark_path):
+        # 取出 txt文件中的三位坐标点信息
+        pts = []
+        with open(landmark_path, "r") as f:
+            i = 1
+            for line in f.readlines():
+                line = line.strip('\n')  # 去掉列表中每一个元素的换行符
+                if line != '' and i >= 13:
+                    _, __, x, y, z = line.split()
+                    pts.append((x, y, z))
+                #
+                i += 1
+        # pts = rearrange_pts(pts)
+        return pts
+
+    def get_landmark_path(self, img_id):
+        # eg.  E://ZN-CT-nii//labels//train//xxxx.txt
+        index,_,_ = img_id.split('.')
+        return os.path.join(self.data_dir, 'labels', self.phase, str(index)+'.txt')
+
+    def load_landmarks(self, index):
+        img_id = self.img_ids[index]
+        landmark_Folder_path = self.get_landmark_path(img_id)
+        pts = self.load_gt_pts(landmark_Folder_path)
+        return pts
+
+    def preprocess(self,index, points_num, full, mode):
+        # 此函数用来生成groundtruth
+
+        img_id = self.img_ids[index]
+        #print(img_id)
+        img_id_num = img_id[0:-7]
+        image = self.load_image(index)  # image是 itk image格式，不是np格式
+
+        aug_label = True
+        # 返回shape为(35，3)的labels列表,排列方式为(z,y,x)
+        pts = self.load_landmarks(index)  # x,y,z
+        # data_series = \
+
+        data_series = spine_localisation_processing_train(image=image,
+                                            pts=pts,
+                                            points_num=points_num,
+                                            image_s=self.input_s,  # 400
+                                            image_h=self.input_h,  # 512
+                                            image_w=self.input_w,  # 512
+                                            aug_label=aug_label,
+                                            img_id=img_id_num,
+                                            full=full
+                                            )
+        data_dict_series = []
+        for out_image, pts_2, img_id_num in data_series:
+            data_dict = spine_localisation_generate_ground_truth(intense_image=out_image,
+                                                                          points_num=points_num,
+                                                                          pts_2=pts_2,
+                                                                          image_s=self.input_s // self.down_ratio,
+                                                                          image_h=self.input_h // self.down_ratio,
+                                                                          image_w=self.input_w // self.down_ratio,
+                                                                          img_id=img_id_num,
+                                                                          full=full,
+                                                                          downsize=self.downsize,
+                                                                          down_ratio=self.down_ratio)
+            data_dict_series.append(data_dict)
+
+        return data_dict_series
+
+
+def transform_landmarks(landmarks, transformation):
+    """
+    Transforms a list of landmarks for a given sitk transformation.
+    :param landmarks: List of landmarks.
+    :param transformation: The sitk transformation.
+    :return: The list of transformed landmarks.
+    """
+    transformed_landmarks = []
+    for landmark in landmarks:
+        transformed_landmark = copy.deepcopy(landmark)
+        transformed_landmark = np.array(transformation.TransformPoint(transformed_landmark.astype(np.float64)), np.float32)
+        transformed_landmarks.append(transformed_landmark)
+    return transformed_landmarks
+
+def sitk_to_np(image_sitk, type=None):
+    if type is None:
+        return sitk.GetArrayFromImage(image_sitk)
+    else:
+        return sitk.GetArrayViewFromImage(image_sitk).astype(type)
+
+def find_maximum_coord_in_image(image):
+    """
+    Return the max coordinate from an image.
+    :param image: The np image.
+    :return: The coordinate as np array.
+    """
+    max_index = np.argmax(image)
+    coord = np.array(np.unravel_index(max_index, image.shape), np.int32)
+    return coord
+
+
+def refine_coordinate_subpixel(image, coord):
+    """
+    Refine a local maximum coordinate to the subpixel maximum.
+    :param image: The np image.
+    :param coord: The coordinate to refine
+    :return: The refined coordinate as np array.
+    """
+    refined_coord = coord.astype(np.float32)
+    dim = coord.size
+    for i in range(dim):
+        if int(coord[i]) - 1 < 0 or int(coord[i]) + 1 >= image.shape[i]:
+            continue
+        before_coord = coord.copy()
+        before_coord[i] -= 1
+        after_coord = coord.copy()
+        after_coord[i] += 1
+        pa = image[tuple(before_coord)]
+        pb = image[tuple(coord)]
+        pc = image[tuple(after_coord)]
+        diff = 0.5 * (pa - pc) / (pa - 2 * pb + pc)
+        refined_coord[i] += diff
+    return refined_coord
+
+
+def find_quadratic_subpixel_maximum_in_image(image):
+    """
+    Return the max value and the subpixel refined coordinate from an image.
+    Refine a local maximum coordinate to the subpixel maximum.
+    :param image: The np image.
+    :return: A tuple of the max value and the refined coordinate as np array.
+    """
+    coord = find_maximum_coord_in_image(image)
+    max_value = image[tuple(coord)]
+    refined_coord = refine_coordinate_subpixel(image, coord)
+    return max_value, refined_coord
+
+def transform_landmarks_inverse_with_resampling(landmarks, transformation, size, spacing, max_min_distance=None):
+    """
+    Transforms a list of landmarks by calculating the inverse of a given sitk transformation by resampling from a displacement field.
+    :param landmarks: The list of landmark objects.
+    :param transformation: The sitk transformation.
+    :param size: The size of the output image, on which the landmark should exist.
+    :param spacing: The spacing of the output image, on which the landmark should exist.
+    :param max_min_distance: The maximum distance of the coordinate calculated by resampling. If the calculated distance is larger than this value, the landmark will be set to being invalid.
+    :return: The landmark object with transformed coords.
+    """
+    transformed_landmarks = copy.deepcopy(landmarks)
+    dim = len(size)
+    displacement_field = sitk.TransformToDisplacementField(transformation, sitk.sitkVectorFloat32, size=size, outputSpacing=spacing)
+    if dim == 2:
+        displacement_field = np.transpose(sitk_to_np(displacement_field), [1, 0, 2])
+        mesh = np.meshgrid(np.array(range(size[0]), np.float32),
+                           np.array(range(size[1]), np.float32),
+                           indexing='ij')
+        # add meshgrid to every displacement value, as the displacement field is relative to the pixel coordinate
+        displacement_field += np.stack(mesh, axis=2) * np.expand_dims(np.expand_dims(np.array(spacing, np.float32), axis=0), axis=0)
+
+        for i in range(len(transformed_landmarks)):
+            if transformed_landmarks[i] is None:
+                continue
+            coords = transformed_landmarks[i]
+            # calculate distances to current landmark coordinates
+            vec = displacement_field - coords
+            distances = np.linalg.norm(vec, axis=2)
+            invert_min_distance, transformed_coords = find_quadratic_subpixel_maximum_in_image(-distances)
+            min_distance = -invert_min_distance
+            if max_min_distance is not None and min_distance > max_min_distance:
+                transformed_landmarks[i].is_valid = False
+                transformed_landmarks[i] = None
+            else:
+                transformed_landmarks[i] = transformed_coords
+    elif dim == 3:
+        displacement_field = np.transpose(sitk_to_np(displacement_field), [2, 1, 0, 3])
+
+        mesh = np.meshgrid(np.array(range(size[0]), np.float32),
+                           np.array(range(size[1]), np.float32),
+                           np.array(range(size[2]), np.float32),
+                           indexing='ij')
+        # add meshgrid to every displacement value, as the displacement field is relative to the pixel coordinate
+        displacement_field += np.stack(mesh, axis=3) * np.expand_dims(np.expand_dims(np.expand_dims(np.array(spacing, np.float32), axis=0), axis=0), axis=0)
+
+        for i in range(len(transformed_landmarks)):
+            if transformed_landmarks[i] is None:
+                continue
+            coords = transformed_landmarks[i]
+            # calculate distances to current landmark coordinates
+            vec = displacement_field - coords
+            distances = np.linalg.norm(vec, axis=3)
+            invert_min_distance, transformed_coords = find_quadratic_subpixel_maximum_in_image(-distances)
+            min_distance = -invert_min_distance
+            if max_min_distance is not None and min_distance > max_min_distance:
+                transformed_landmarks[i].is_valid = False
+                transformed_landmarks[i] = None
+            else:
+                transformed_landmarks[i] = transformed_coords
+    return transformed_landmarks
+
+
+def transform_landmarks_inverse(landmarks, transformation, size, spacing, max_min_distance=None):
+    """
+    Transforms a landmark object with the inverse of a given sitk transformation. If the transformation
+    is not invertible, calculates the inverse by resampling from a dispacement field.
+    :param landmarks: The landmark objects.
+    :param transformation: The sitk transformation.
+    :param size: The size of the output image, on which the landmark should exist.
+    :param spacing: The spacing of the output image, on which the landmark should exist.
+    :param max_min_distance: The maximum distance of the coordinate calculated by resampling. If the calculated distance is larger than this value, the landmark will be set to being invalid.
+                             If this parameter is None, np.max(spacing) * 2 will be used.
+    :return: The landmark object with transformed coords.
+    """
+    try:
+        inverse = transformation.GetInverse()
+        transformed_landmarks = transform_landmarks(landmarks, inverse)
+        for transformed_landmark in transformed_landmarks:
+            #if transformed_landmark.is_valid:
+            transformed_landmark /= np.array(spacing)
+        return transformed_landmarks
+    except:
+        # consider a distance of 2 pixels as a maximum allowed distance
+        # for calculating the inverse with a transformation field
+        max_min_distance = max_min_distance or np.max(spacing) * 2
+        return transform_landmarks_inverse_with_resampling(landmarks, transformation, size, spacing, max_min_distance)
+
+
+def preprocess_landmarks(landmarks, transformation, output_size, output_spacing):
+    """
+    Flip, filter and transform landmarks
+    :param landmarks: list of landmarks to flip, filter and transform
+    :param transformation: transformation to perform
+    :param output_size: The output size.
+    :param output_spacing: The output spacing.
+    :return: list of flipped, filtered and transformed landmarks
+    """
+    return transform_landmarks_inverse(landmarks, transformation, output_size, output_spacing, None)
+
+
+def spine_localisation_processing_train(image, pts, points_num,image_h, image_w, image_s, aug_label, img_id, full):
+    pts = np.array(pts, dtype='float32')
+    ct_landmarks = []
+    for i in range(points_num):
+        temp1 = np.mean(pts[8 * i + 0:8 * i + 2], axis=0)
+        temp2 = np.mean(pts[8 * i + 2:8 * i + 4], axis=0)
+        cen_z, cen_y, cen_x = np.mean([temp1, temp2], axis=0)
+        ct_landmarks.append([cen_z, cen_y, cen_x])
+    ct_landmarks = np.asarray(ct_landmarks, dtype='float32')
+    if aug_label:
+        spacing = image.GetSpacing()  # 获取体素的大小
+        origin = image.GetOrigin()  # 获取CT的起点位置
+        size = image.GetSize()  # 获取CT的大小
+        direction = image.GetDirection()  # 获取C的方向
+        itk_information = {}
+        itk_information['spacing'] = spacing
+        itk_information['origin'] = origin
+        itk_information['size'] = size
+        itk_information['direction'] = direction
+        dim = 3
+        data_series = []
+        #print("sitk.Version: ",sitk.Version_MajorVersion())
+        transformation_list = []
+        transformation_list.append(transform.InputCenterToOrigin.get(dim = 3,itk_information=itk_information))
+        transformation_list.extend([transform.RandomTranslation.get(dim=3, offset=[30] * 3),
+                                    transform.RandomRotation.get(dim=3, random_angles=[15] * 3),
+                                    # 随机旋转
+                                    transform.RandomScale.get(dim=3, random_scale=0.15),
+                                    transform.OriginToOutputCenter.get(dim = 3, itk_information=itk_information)])
+        #合并transformation
+        #compos = sitk.Transform(dim, sitk.sitkIdentity)
+
+        transformation_comp = sitk.CompositeTransform(dim)
+        for transformation in transformation_list:
+            transformation_comp.AddTransform(transformation)
+        sitk_transformation = sitk.DisplacementFieldTransform(sitk.TransformToDisplacementField(transformation_comp, sitk.sitkVectorFloat64, size=size, outputSpacing=spacing))
+        output_image_sitk = resample(image,
+                                    sitk_transformation,
+                                    output_size = size,
+                                    output_spacing = spacing,
+                                    interpolator=sitk.sitkLinear,
+                                    output_pixel_type=None,
+                                    default_pixel_value=-2048)
+        output_image = sitk.GetArrayFromImage(output_image_sitk)
+        output_image = output_image/2048
+
+        preprocessed_landmarks = preprocess_landmarks(ct_landmarks.copy(), sitk_transformation, size, spacing)
+        preprocessed_landmarks = np.array(np.round(preprocessed_landmarks[:, [2, 1, 0]]), dtype='int32')
+    else:
+        preprocessed_landmarks = ct_landmarks
+        output_image = sitk.GetArrayFromImage(image)
+
+    # draw.draw_points_test(output_image, preprocessed_landmarks)
+    #print('done')
+    output_image,preprocessed_landmarks = transform.Resize.resize(img = output_image,pts = preprocessed_landmarks,input_s=image_s, input_h=image_h, input_w=image_w)
+    #draw.draw_points_test(output_image, preprocessed_landmarks)
+    output_image = np.reshape(output_image, (1, image_s, image_h, image_w))
+    data_series = []
+    data_series.append((output_image, preprocessed_landmarks,img_id))
+
+    return data_series
+
+def spine_localisation_generate_ground_truth(
+                          intense_image,
+                          pts_2,
+                          points_num,
+                          image_s,
+                          image_h,
+                          image_w,
+                          img_id,
+                          full,
+                          downsize,down_ratio):
+    #因为要downsize为1/2，所以要将参数大小除2取整数
+    pts_2 = transform.rescale_pts(pts_2, down_ratio=down_ratio)
+    hm = np.zeros((5,image_s//downsize, image_h//downsize, image_w//downsize), dtype=np.float32)
+
+    if pts_2[:,0].max()>image_s:
+        print('s is big', pts_2[:,0].max())
+    if pts_2[:,1].max()>image_h:
+        print('h is big', pts_2[:,1].max())
+    if pts_2[:,2].max()>image_w:
+        print('w is big', pts_2[:,2].max())
+
+    if pts_2.shape[0]!=5:
+        print('ATTENTION!! image {} pts does not equal to 5!!! '.format(img_id))
+
+    pts = pts_2
+    # 计算同一侧椎弓更上两点在x和y轴上的间距
+    ct_landmark = pts
+    min_diameter = 6
+    # 椎弓更的landmark
+    #要downsize，所以要除
+    ct_landmark = np.asarray(ct_landmark, dtype=np.float32)/downsize
+    ct_landmark_int = np.floor(ct_landmark).astype(np.int32)
+    #radius = gaussian_radius((math.ceil(distance_y), math.ceil(distance_x)))
+    radius = max(0, int(min_diameter))//2
+    #生成脊锥中心点的热图
+    for i in range(points_num):
+        hm[i] = draw_umich_gaussian(hm[i], ct_landmark_int[i], radius=radius)
+
+    max_pool_downsize = nn.MaxPool3d(kernel_size=3,stride=2,padding=1)
+
+    intense_image = torch.from_numpy(intense_image)
+    intense_image = max_pool_downsize(intense_image)
+    intense_image = max_pool_downsize(intense_image).numpy()
+    intense_image = intense_image.astype(np.float32)
+
+    ret = {'input': intense_image,
+           'hm': hm,
+           'landmarks':ct_landmark_int,
+           'img_id':img_id
+           }
+    return ret
+
+
+if __name__ == '__main__':
+    dataset = BaseDataset(data_dir='E:\\ZN-CT-nii',
+                          phase='gt',
+                          input_h=512,
+                          input_w=512,
+                          input_s=400,
+                          down_ratio=2, downsize=4)
+    data_dict_series = dataset.preprocess(index=0,points_num=5,full=True,mode='1')

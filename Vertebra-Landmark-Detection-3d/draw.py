@@ -92,7 +92,8 @@ def draw_points(img_series,pts2,pts_gt,mode):
             cv2.destroyAllWindows()
             exit()
 def draw_points_test(img_series,pts2):
-    img_series_x = img_series[0][0]
+    s,h,w = img_series.shape
+    img_series_x = img_series
     img_series_a = img_series_x.copy()
     img_series_a_gt = img_series_x.copy()
     img_series_b = img_series_x.copy()
@@ -107,7 +108,7 @@ def draw_points_test(img_series,pts2):
         x_axis = int(pt[2])
 
         #tp = np.full((68,256),-1,dtype=np.float32)
-        tp = np.full((80, 400), -1, dtype=np.float32)
+        tp = np.full((int((h-s)/2), h), -1, dtype=np.float32)
         #tp = np.full((56, 512), -1, dtype=np.float32)
         ori_image_regress_z = img_series_a[z_axis]
         ori_image_regress_x = np.transpose(img_series_b[:, :, x_axis], (0, 1))
@@ -116,7 +117,7 @@ def draw_points_test(img_series,pts2):
 
 
         cv2.circle(ori_image_regress_z, (x_axis, y_axis), 2, color_255, -1, 1)
-        cv2.circle(ori_image_regress_x, (y_axis, z_axis + 80), 2, color_255, -1, 1)
+        cv2.circle(ori_image_regress_x, (y_axis, z_axis + int((h-s)/2)), 2, color_255, -1, 1)
 
 
         cv2.imshow('ori_image_regress_z', ori_image_regress_z) #确定z轴，画剖面图
