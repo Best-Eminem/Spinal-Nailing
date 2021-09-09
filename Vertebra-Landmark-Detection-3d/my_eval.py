@@ -50,14 +50,14 @@ class Network(object):
         model.load_state_dict(state_dict_, strict=False)
         return model
 
-    def eval(self, args, save,CT):
-        save_path = 'E:\\Spinal-Nailing\\weights_'+args.dataset
-        self.model = self.load_model(self.model, os.path.join(save_path, 'spine_localisation//one output//model_150.pth'))
+    def eval(self, args, save,CT_path):
+        save_path = args.model_dir
+        self.model = self.load_model(self.model, os.path.join(save_path, 'spine_localisation/one output/clean/model_200.pth'))
         self.model = self.model.to(self.device)
         #不启用 Batch Normalization 和 Dropout。
         self.model.eval()
             #将heatmap还原为坐标
-        itk_img = sitk.ReadImage(os.path.join("E:\\ZN-CT-nii\\data\\gt", CT))
+        itk_img = sitk.ReadImage(CT_path)
         image_array = sitk.GetArrayFromImage(itk_img)
         data_aug = {'eval': transform.Compose([transform.ConvertImgFloat(),  # 转为float32格式
                                                 # transform.PhotometricDistort(), #对比度，噪声，亮度
@@ -160,7 +160,7 @@ class Network(object):
         # out_image = out_image / np.max(abs(out_image))
         out_image = out_image / temp
         out_image = np.asarray(out_image, np.float32)
-        joblib.dump(out_image, 'E:\\ZN-CT-nii\\my_eval\\'+CT)
+        joblib.dump(out_image, 'F:\\ZN-CT-nii\\my_eval\\'+CT)
         intense_image = out_image.copy()
         intense_image[intense_image >= 0.1] += 0.2
         intense_image[intense_image > 1] = 1

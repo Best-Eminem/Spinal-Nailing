@@ -32,40 +32,50 @@ def GetFileName(fileDir):
     return list_name
 
 
-fileDir = "E:\\ZN-CT"  # 输入文件夹路径
-files = GetFileName(fileDir)
-# print(files)
-
-# 第二步：转化为.nii
-
-
-# 设定输出.nii文件的路径，为了方便这里将路径中的xuezhong文件夹旁新建xuezhong_output文件夹，xuezhong_output文件夹内的文件名保持不变
-outputfiles = []
-for i in range(len(files)):
-    outputfiles.append(files[i][:51] + "_output" + files[i][51:])
-
 # 如果文件夹不存在创建文件夹
 def Makedir(path):
     folder = os.path.exists(path)
     if (not folder):
         os.makedirs(path)
 
-for path in outputfiles:
-    Makedir(path)
+def del_package(path):
+    ls = os.listdir(path)
+    for i in ls:
+        c_path = os.path.join(path, i)
+        if os.path.isdir(c_path):
+            del_package(c_path)
+        else:
+            os.remove(c_path)
+    os.removedirs(path)
 
 
-for i in range(len(files)):
-    filepath = files[i]  # 读取路径
-    series_id = sitk.ImageSeriesReader.GetGDCMSeriesIDs(filepath)
-    series_file_names = sitk.ImageSeriesReader.GetGDCMSeriesFileNames(filepath, series_id[0])
-    series_reader = sitk.ImageSeriesReader()  # 读取数据端口
-    series_reader.SetFileNames(series_file_names)
-    images = series_reader.Execute()  # 读取数据
-    sitk.WriteImage(images, outputfiles[i] + "/transfei.nii.gz")  # 保存为nii
+if __name__ == '__main__':
 
+    fileDir = "E:/ZN-CT-nii/VertebraeCT/JJL-CT"  # 输入文件夹路径
+    files = GetFileName(fileDir)
+    # for path in files:
+    #     if path[-7:-1] =='output':
+    #         del_package(path)
+    # print(files)
 
+    # 第二步：转化为.nii
 
+    # 设定输出.nii文件的路径，为了方便这里将路径中的xuezhong文件夹旁新建xuezhong_output文件夹，xuezhong_output文件夹内的文件名保持不变
+    # outputfiles = []
+    # for i in range(len(files)):
+    #     outputfiles.append(files[i][:51] + "_output" + files[i][51:])
+    #
+    # for path in outputfiles:
+    #     Makedir(path)
 
+    for i in range(len(files)):
+        filepath = files[i]  # 读取路径
+        series_id = sitk.ImageSeriesReader.GetGDCMSeriesIDs(filepath)
+        series_file_names = sitk.ImageSeriesReader.GetGDCMSeriesFileNames(filepath, series_id[0])
+        series_reader = sitk.ImageSeriesReader()  # 读取数据端口
+        series_reader.SetFileNames(series_file_names)
+        images = series_reader.Execute()  # 读取数据
+        sitk.WriteImage(images, "E:/ZN-CT-nii/VertebraeCT/JJL-CT/nii/"+str(i+1+50)+".nii.gz")  # 保存为nii
 
 
 

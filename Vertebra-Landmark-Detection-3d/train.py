@@ -9,6 +9,7 @@ from dataset import BaseDataset
 from matplotlib import pyplot as plt
 from torchviz import make_dot
 from tensorboardX import SummaryWriter
+import time
 
 def collater(data):
     out_data_dict = {}
@@ -96,7 +97,7 @@ class Network(object):
     def train_network(self, args):
 
         # args.dataset = 'spinal'
-        save_path = 'E:\\Spinal-Nailing\\weights_'+args.dataset
+        save_path = args.model_dir
         if not os.path.exists(save_path):
             os.mkdir(save_path)
         self.optimizer = torch.optim.Adam(self.model.parameters(), args.init_lr)
@@ -108,7 +109,7 @@ class Network(object):
             if torch.cuda.device_count() > 1:
                 print("Let's use", torch.cuda.device_count(), "GPUs!")
                 self.model = nn.DataParallel(self.model)
-        save_path_load = 'weights_' + args.dataset + '//without_point_loss'
+        #save_path_load = 'weights_' + args.dataset + '//without_point_loss'
         #self.model = self.load_model(self.model, os.path.join(save_path_load, args.resume))
         self.model.to(self.device)
         # criterion为loss函数
@@ -148,6 +149,11 @@ class Network(object):
         print('Starting training...')
         train_loss = []
         val_loss = []
+        now_time = time.strftime('%Y-%m-%d %H-%M-%S', time.localtime(time.time()))
+        time_path = os.path.join(args.mode,now_time)
+        info_savepath = os.path.join(save_path,time_path)
+        if not os.path.exists(info_savepath):
+            os.mkdir(info_savepath)
         for epoch in range(1, args.num_epoch+1):
             print('-'*30)
             print('Epoch: {}/{} '.format(epoch, args.num_epoch))
@@ -165,15 +171,15 @@ class Network(object):
             self.writer.add_scalar('ValLoss', epoch_loss, epoch)
             val_loss.append(epoch_loss)
 
-            np.savetxt(os.path.join(save_path, 'train_loss.txt'), train_loss, fmt='%.9f')
-            np.savetxt(os.path.join(save_path, 'val_loss.txt'), val_loss, fmt='%.9f')
+            np.savetxt(os.path.join(info_savepath, 'train_loss.txt'), train_loss, fmt='%.9f')
+            np.savetxt(os.path.join(info_savepath, 'val_loss.txt'), val_loss, fmt='%.9f')
 
             if epoch % 10 == 0 or epoch ==1:
-                self.save_model(os.path.join(save_path, 'model_{}.pth'.format(epoch)), epoch, self.model)
+                self.save_model(os.path.join(info_savepath, 'model_{}.pth'.format(epoch)), epoch, self.model)
             # 保存模型
             if len(val_loss)>1:
                 if val_loss[-1]<np.min(val_loss[:-1]):
-                    self.save_model(os.path.join(save_path, 'model_last_origin.pth'), epoch, self.model)
+                    self.save_model(os.path.join(info_savepath, 'model_last_origin.pth'), epoch, self.model)
 
     def run_epoch(self, phase, data_loader, criterion):
         if phase == 'train':

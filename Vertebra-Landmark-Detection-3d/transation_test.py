@@ -10,6 +10,9 @@ import SimpleITK as sitk
 import transform
 import torch.nn as nn
 
+from xyz2irc_irc2xyz import xyz2irc, irc2xyz
+
+
 def resample(input_image,
              transform,
              output_size,
@@ -100,7 +103,7 @@ class BaseDataset(data.Dataset):
         return pts
 
     def get_landmark_path(self, img_id):
-        # eg.  E://ZN-CT-nii//labels//train//xxxx.txt
+        # eg.  F://ZN-CT-nii//labels//train//xxxx.txt
         index,_,_ = img_id.split('.')
         return os.path.join(self.data_dir, 'labels', self.phase, str(index)+'.txt')
 
@@ -114,7 +117,7 @@ class BaseDataset(data.Dataset):
         # 此函数用来生成groundtruth
 
         img_id = self.img_ids[index]
-        #print(img_id)
+        print(img_id)
         img_id_num = img_id[0:-7]
         image = self.load_image(index)  # image是 itk image格式，不是np格式
 
@@ -135,7 +138,7 @@ class BaseDataset(data.Dataset):
                                             )
         data_dict_series = []
         for out_image, pts_2, img_id_num in data_series:
-            data_dict = spine_localisation_generate_ground_truth(intense_image=out_image,
+            data_dict = spine_localisation_generate_ground_truth(out_image=out_image,
                                                                           points_num=points_num,
                                                                           pts_2=pts_2,
                                                                           image_s=self.input_s // self.down_ratio,
@@ -317,6 +320,184 @@ def preprocess_landmarks(landmarks, transformation, output_size, output_spacing)
     return transform_landmarks_inverse(landmarks, transformation, output_size, output_spacing, None)
 
 
+
+def generate_ground_truth(output_img,
+                          pts_2,
+                          points_num,
+                          image_s,
+                          image_h,
+                          image_w,
+                          img_id,
+                          full,
+                          downsize,down_ratio,origin_size):
+    #因为要downsize为1/2，所以要将参数大小除2取整数
+    pts_2 = transform.rescale_pts(pts_2, down_ratio=down_ratio)
+    hm = np.zeros((5,image_s//downsize, image_h//downsize, image_w//downsize), dtype=np.float32)
+    reg = np.zeros((points_num, 3), dtype=np.float32)  #reg表示ct_int和ct的差值
+    ind = np.zeros((points_num), dtype=np.int64) # 每个landmark坐标值与ct长宽高形成约束？
+    reg_mask = np.zeros((points_num), dtype=np.uint8)
+
+    if pts_2[:,0].max()>image_s:
+        print('s is big', pts_2[:,0].max())
+    if pts_2[:,1].max()>image_h:
+        print('h is big', pts_2[:,1].max())
+    if pts_2[:,2].max()>image_w:
+        print('w is big', pts_2[:,2].max())
+
+    if pts_2.shape[0]!=40:
+        print('ATTENTION!! image {} pts does not equal to 40!!! '.format(img_id))
+
+    pts = pts_2
+    # 计算同一侧椎弓更上两点在x和y轴上的间距
+    ct_landmark = pts
+    min_diameter = 99
+    for i in range(5):
+        zhuigonggeng_left_landmarks_distance = np.sqrt(np.sum((pts[8*i+4, :] - pts[8*i+5, :]) ** 2))
+        zhuigonggeng_right_landmarks_distance = np.sqrt(np.sum((pts[8*i+6, :] - pts[8*i+7, :]) ** 2))
+        # cen_z1, cen_y1, cen_x1 = np.mean(pts[8*i+4:8*i+6], axis=0)
+        # cen_z2, cen_y2, cen_x2 = np.mean(pts[8*i+6:8*i+8], axis=0)
+        # ct_landmark.append(pts[7*i+1])
+        # for j in range(4):
+        #     ct_landmark.append(pts[8 * i + j])
+
+        # ct_landmark.append([cen_z1, cen_y1, cen_x1])
+        # ct_landmark.append([cen_z2, cen_y2, cen_x2])
+        diameter = min(zhuigonggeng_left_landmarks_distance, zhuigonggeng_right_landmarks_distance)
+        min_diameter = min(min_diameter,diameter)
+    # 椎弓更的landmark
+    #要downsize，所以要除2
+    ct_landmark = np.asarray(ct_landmark, dtype=np.float32) / downsize
+    ct_landmark_int = np.floor(ct_landmark).astype(np.int32)
+    # radius = gaussian_radius((math.ceil(distance_y), math.ceil(distance_x)))
+    radius = max(0, int(min_diameter)) // 2
+    # 生成脊锥中心点的热图
+    for i in range(points_num):
+        hm[i] = draw_umich_gaussian(hm[i], ct_landmark_int[i], radius=radius)
+
+    max_pool_downsize = nn.MaxPool3d(kernel_size=3, stride=2, padding=1)
+    intense_image = output_img.copy()
+    intense_image = torch.from_numpy(intense_image)
+    intense_image = max_pool_downsize(intense_image).numpy()
+    intense_image = intense_image.astype(np.float32)
+
+    ret = {'input': intense_image,
+           'origin_image': output_img,
+           'hm': hm,
+           'landmarks': ct_landmark_int,
+           'img_id': img_id,
+           'origin_size': origin_size
+           }
+    return ret
+
+
+def processing_train(image, pts, points_num,image_h, image_w, image_s,
+                     aug_label, img_id,full,spine_localisation_eval_dict):
+    spine_localisation_eval_pts = spine_localisation_eval_dict['pts']
+    spine_localisation_eval_center = spine_localisation_eval_dict['pts_center']
+    ct_landmarks = np.asarray(pts, dtype='float32')
+    if aug_label:
+        spacing = image.GetSpacing()  # 获取体素的大小
+        origin = image.GetOrigin()  # 获取CT的起点位置
+        size = image.GetSize()  # 获取CT的大小
+        direction = image.GetDirection()  # 获取C的方向
+        itk_information = {}
+        itk_information['spacing'] = spacing
+        itk_information['origin'] = origin
+        itk_information['size'] = size
+        itk_information['direction'] = direction
+        dim = 3
+        data_series = []
+        #print("sitk.Version: ",sitk.Version_MajorVersion())
+        transformation_list = []
+        transformation_list.append(transform.InputCenterToOrigin.get(dim = 3,itk_information=itk_information))
+        transformation_list.extend([transform.RandomTranslation.get(dim=3, offset=[30] * 3),
+                                    transform.RandomRotation.get(dim=3, random_angles=[15] * 3),
+                                    # 随机旋转
+                                    transform.RandomScale.get(dim=3, random_scale=0.15),
+                                    transform.OriginToOutputCenter.get(dim = 3, itk_information=itk_information)])
+        #合并transformation
+        #compos = sitk.Transform(dim, sitk.sitkIdentity)
+
+        transformation_comp = sitk.CompositeTransform(dim)
+        for transformation in transformation_list:
+            transformation_comp.AddTransform(transformation)
+        sitk_transformation = transformation_comp
+        #sitk_transformation = sitk.DisplacementFieldTransform(sitk.TransformToDisplacementField(transformation_comp, sitk.sitkVectorFloat64, size=size, outputSpacing=spacing))
+        output_image_sitk = resample(image,
+                                    sitk_transformation,
+                                    output_size = size,
+                                    output_spacing = spacing,
+                                    interpolator=sitk.sitkLinear,
+                                    output_pixel_type=None,
+                                    default_pixel_value=-2048)
+        output_image = sitk.GetArrayFromImage(output_image_sitk)
+        output_image = output_image/2048
+
+        preprocessed_landmarks = preprocess_landmarks(ct_landmarks.copy(), sitk_transformation, size, spacing)
+        preprocessed_landmarks = np.array(np.round(np.array(preprocessed_landmarks)[:, [2, 1, 0]]), dtype='int32')
+
+        spine_localisation_eval_pts_preprocessed = []
+        for i in range(len(spine_localisation_eval_pts)):
+            spine_localisation_eval_pts_preprocessed.append(irc2xyz(origin,size,direction,spine_localisation_eval_pts[i].copy()))
+        spine_localisation_eval_pts_preprocessed = preprocess_landmarks(spine_localisation_eval_pts_preprocessed, sitk_transformation, size, spacing)
+        spine_localisation_eval_pts_preprocessed = np.array(np.round(np.array(spine_localisation_eval_pts_preprocessed)[:, [2, 1, 0]]), dtype='int32')
+
+        spine_localisation_eval_center_preprocessed = preprocess_landmarks(irc2xyz(origin,size,direction,spine_localisation_eval_center.copy()), sitk_transformation, size, spacing)
+        spine_localisation_eval_center_preprocessed = np.array(np.round(np.array(spine_localisation_eval_center_preprocessed)[:, [2, 1, 0]]), dtype='int32')
+    else:
+        preprocessed_landmarks = []
+        for i in range(len(ct_landmarks)):
+            preprocessed_landmarks.append(xyz2irc(image, ct_landmarks[i]))
+        preprocessed_landmarks = np.asarray(preprocessed_landmarks)
+        spine_localisation_eval_pts_preprocessed = spine_localisation_eval_pts
+        spine_localisation_eval_center_preprocessed = spine_localisation_eval_center
+        output_image = sitk.GetArrayFromImage(image)
+        output_image = output_image / 2048
+
+    # draw.draw_points_test(output_image, preprocessed_landmarks)
+    #print('done')
+
+    # spine_localisation_bottom_z = spine_localisation_eval_dict['spine_localisation_bottom_z'][0]
+    # spine_localisation_eval_center_preprocessed[0] += spine_localisation_bottom_z
+    bo = preprocessed_landmarks[:, 0].min()
+    # spine_localisation_eval_pts_preprocessed[:,0] += spine_localisation_bottom_z
+    bottom_z = (spine_localisation_eval_pts_preprocessed[0][0] - 25) if spine_localisation_eval_pts_preprocessed[0][
+                                                                            0] - 25 >= 0 else 0
+    bottom_z = np.floor(bottom_z).astype(np.int32)
+    top_z = spine_localisation_eval_pts_preprocessed[4][0] + 25
+    top_z = np.ceil(top_z).astype(np.int32)
+    # 所有点的z轴坐标要改变
+
+    preprocessed_landmarks[:, 0] = preprocessed_landmarks[:, 0] - bottom_z
+    # 根据预测的整个ct的中心点的x,y坐标取出原ct的一部分
+    pts_center_y = spine_localisation_eval_center_preprocessed[1]
+    pts_center_x = spine_localisation_eval_center_preprocessed[2]
+    # 所有点的x，y轴坐标要减小
+    preprocessed_landmarks[:, 1] = preprocessed_landmarks[:, 1] - ((pts_center_y - 200) if pts_center_y - 200 >= 0 else 0)
+    preprocessed_landmarks[:, 2] = preprocessed_landmarks[:, 2] - ((pts_center_x - 200) if pts_center_x - 200 >= 0 else 0)
+    # 截取包含5段脊椎的部分
+    image_array_section = output_image[bottom_z:top_z,
+                          (pts_center_y - 200) if pts_center_y - 200 >= 0 else 0:(
+                                      pts_center_y + 200) if pts_center_y + 200 <= 512 else 512,
+                          (pts_center_x - 200) if pts_center_x - 200 >= 0 else 0:(
+                                      pts_center_x + 200) if pts_center_x + 200 <= 512 else 512]
+
+    output_image,preprocessed_landmarks = transform.Resize.resize(img = image_array_section,pts = preprocessed_landmarks,input_s=image_s, input_h=image_h, input_w=image_w)
+    # if aug_label == False:
+    #     draw.draw_points_test(output_image, preprocessed_landmarks)
+    output_image = np.reshape(output_image, (1, image_s, image_h, image_w))
+    data_series = []
+    data_series.append((output_image, preprocessed_landmarks,img_id,bottom_z)) #这里的bottom_z是resize之前的，是原始CT中的点或原始CT数据增强后的点
+                                                                               #若想要将第二部预测的点恢复到原始CT的话，需要先resize点，再将预测点z坐标加上bottom_z
+
+
+
+
+    #data_series.append((out_image,intense_image, pts2,img_id,bottom_z))
+
+    #return np.asarray(out_image, np.float32), pts2
+    return data_series
+
 def spine_localisation_processing_train(image, pts, points_num,image_h, image_w, image_s, aug_label, img_id, full):
     pts = np.array(pts, dtype='float32')
     ct_landmarks = []
@@ -352,7 +533,8 @@ def spine_localisation_processing_train(image, pts, points_num,image_h, image_w,
         transformation_comp = sitk.CompositeTransform(dim)
         for transformation in transformation_list:
             transformation_comp.AddTransform(transformation)
-        sitk_transformation = sitk.DisplacementFieldTransform(sitk.TransformToDisplacementField(transformation_comp, sitk.sitkVectorFloat64, size=size, outputSpacing=spacing))
+        sitk_transformation = transformation_comp
+        #sitk_transformation = sitk.DisplacementFieldTransform(sitk.TransformToDisplacementField(transformation_comp, sitk.sitkVectorFloat64, size=size, outputSpacing=spacing))
         output_image_sitk = resample(image,
                                     sitk_transformation,
                                     output_size = size,
@@ -364,23 +546,29 @@ def spine_localisation_processing_train(image, pts, points_num,image_h, image_w,
         output_image = output_image/2048
 
         preprocessed_landmarks = preprocess_landmarks(ct_landmarks.copy(), sitk_transformation, size, spacing)
-        preprocessed_landmarks = np.array(np.round(preprocessed_landmarks[:, [2, 1, 0]]), dtype='int32')
+        preprocessed_landmarks = np.array(np.round(np.array(preprocessed_landmarks)[:, [2, 1, 0]]), dtype='int32')
     else:
-        preprocessed_landmarks = ct_landmarks
+        preprocessed_landmarks = []
+        for i in range(len(ct_landmarks)):
+            preprocessed_landmarks.append(xyz2irc(image, ct_landmarks[i]))
+        preprocessed_landmarks = np.asarray(preprocessed_landmarks)
         output_image = sitk.GetArrayFromImage(image)
+        output_image = output_image / 2048
 
     # draw.draw_points_test(output_image, preprocessed_landmarks)
     #print('done')
+    origin_size = output_image.shape
     output_image,preprocessed_landmarks = transform.Resize.resize(img = output_image,pts = preprocessed_landmarks,input_s=image_s, input_h=image_h, input_w=image_w)
-    #draw.draw_points_test(output_image, preprocessed_landmarks)
+    # if aug_label == False:
+    #     draw.draw_points_test(output_image, preprocessed_landmarks)
     output_image = np.reshape(output_image, (1, image_s, image_h, image_w))
     data_series = []
-    data_series.append((output_image, preprocessed_landmarks,img_id))
+    data_series.append((output_image, preprocessed_landmarks,img_id,np.asarray(origin_size)))
 
     return data_series
 
 def spine_localisation_generate_ground_truth(
-                          intense_image,
+                          output_img,
                           pts_2,
                           points_num,
                           image_s,
@@ -388,7 +576,7 @@ def spine_localisation_generate_ground_truth(
                           image_w,
                           img_id,
                           full,
-                          downsize,down_ratio):
+                          downsize,down_ratio,origin_size):
     #因为要downsize为1/2，所以要将参数大小除2取整数
     pts_2 = transform.rescale_pts(pts_2, down_ratio=down_ratio)
     hm = np.zeros((5,image_s//downsize, image_h//downsize, image_w//downsize), dtype=np.float32)
@@ -418,25 +606,27 @@ def spine_localisation_generate_ground_truth(
         hm[i] = draw_umich_gaussian(hm[i], ct_landmark_int[i], radius=radius)
 
     max_pool_downsize = nn.MaxPool3d(kernel_size=3,stride=2,padding=1)
-
+    intense_image = output_img.copy()
     intense_image = torch.from_numpy(intense_image)
     intense_image = max_pool_downsize(intense_image)
     intense_image = max_pool_downsize(intense_image).numpy()
     intense_image = intense_image.astype(np.float32)
 
     ret = {'input': intense_image,
+           'origin_image':output_img,
            'hm': hm,
            'landmarks':ct_landmark_int,
-           'img_id':img_id
+           'img_id':img_id,
+           'origin_size':origin_size
            }
     return ret
 
 
 if __name__ == '__main__':
-    dataset = BaseDataset(data_dir='E:\\ZN-CT-nii',
+    dataset = BaseDataset(data_dir='F:\\ZN-CT-nii',
                           phase='gt',
                           input_h=512,
                           input_w=512,
                           input_s=400,
                           down_ratio=2, downsize=4)
-    data_dict_series = dataset.preprocess(index=0,points_num=5,full=True,mode='1')
+    data_dict_series = dataset.preprocess(index=7,points_num=5,full=True,mode='1')

@@ -4,7 +4,7 @@ import joblib
 from matplotlib import pyplot as plt
 import SimpleITK as sitk
 import xyz2irc_irc2xyz
-# img_ori = sitk.ReadImage('E:\\ZN-CT-nii\\data\\gt\\3.nii.gz')
+# img_ori = sitk.ReadImage('F:\\ZN-CT-nii\\data\\gt\\3.nii.gz')
 # point = [-25.6957,-1.1312,1819.4020]
 # point_zyx = xyz2irc_irc2xyz.xyz2irc(img_ori,point)
 colors = [[0.76590096, 0.0266074, 0.9806378],
@@ -131,7 +131,7 @@ def draw_points_test(img_series,pts2):
 # for i in range(1,28):
 #     print(i)
 #     img_id = str(i)+'.gt'
-#     data_dict = joblib.load('E:\\ZN-CT-nii\\groundtruth\\spine_localisation\\' + img_id)
+#     data_dict = joblib.load('F:\\ZN-CT-nii\\groundtruth\\spine_localisation\\' + img_id)
 #     pts2 = data_dict['landmarks'] * 4 * 2
 #     a,b,c,d = data_dict['origin_image'].shape
 #     img_series = data_dict['origin_image'].reshape((1,a,b,c,d))
@@ -139,7 +139,7 @@ def draw_points_test(img_series,pts2):
 # for i in range(29,51):
 #     print(i)
 #     img_id = str(i)+'.gt'
-#     data_dict = joblib.load('E:\\ZN-CT-nii\\groundtruth\\spine_localisation\\' + img_id)
+#     data_dict = joblib.load('F:\\ZN-CT-nii\\groundtruth\\spine_localisation\\' + img_id)
 #     pts2 = data_dict['landmarks'] * 4 * 2
 #     a,b,c,d = data_dict['origin_image'].shape
 #     img_series = data_dict['origin_image'].reshape((1,a,b,c,d))
@@ -155,8 +155,8 @@ def draw_points_test(img_series,pts2):
 #pts_gt_7 = [[27, 122, 188], [35, 173, 157], [37, 174, 225], [84, 178, 162], [85, 178, 214], [89, 120, 187], [128, 194, 160], [129, 193, 209], [137, 136, 182], [174, 209, 158], [175, 208, 204], [182, 153, 181], [215, 219, 154], [218, 219, 201], [222, 167, 175]]
 #pts7 =     [[31, 125, 194], [40, 171, 163], [40, 170, 226], [88, 178, 164], [88, 176, 211], [87, 125, 187], [138, 194, 163], [137, 196, 211], [136, 137, 179], [178, 210, 154], [177, 203, 203], [184, 153, 178], [225, 217, 154], [225, 218, 203], [224, 171, 177]]
 # img_id = '10.gt'
-#data_dict = joblib.load('E:\\ZN-CT-nii\\groundtruth\\landmark_detection\\' + img_id)
-# data = joblib.load('E:\\ZN-CT-nii\\eval\\spine_localisation_eval\\' + '16.eval')
+#data_dict = joblib.load('F:\\ZN-CT-nii\\groundtruth\\landmark_detection\\' + img_id)
+# data = joblib.load('F:\\ZN-CT-nii\\eval\\spine_localisation_eval\\' + '16.eval')
 #
 # print(data)
 # pts2 = data_dict['landmarks'] * 2

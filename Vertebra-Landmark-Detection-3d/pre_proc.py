@@ -9,69 +9,6 @@ from transform import resize_image_itk
 from xyz2irc_irc2xyz import xyz2irc
 import torch.nn as nn
 
-
-def processing_test(image, input_h, input_w, input_s):
-    # print(image.shape)
-    image = resize_image_itk(image, (input_w, input_h, input_s),resamplemethod=sitk.sitkLinear)
-    image = sitk.GetArrayFromImage(image)
-    out_image = image / np.max(abs(image))
-    out_image = np.asarray(out_image, np.float32)
-
-    out_image = out_image.reshape(1, 1, input_s,input_h, input_w)
-    out_image = torch.from_numpy(out_image)
-    return out_image
-
-
-def draw_spinal(pts, out_image):
-    colors = [(0, 0, 255), (0, 255, 255), (255, 0, 255), (0, 255, 0)]
-    for i in range(4):
-        cv2.circle(out_image, (int(pts[i, 0]), int(pts[i, 1])), 3, colors[i], 1, 1)
-        cv2.putText(out_image, '{}'.format(i+1), (int(pts[i, 0]), int(pts[i, 1])),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.3, (0,0,0),1,1)
-    for i,j in zip([0,1,2,3], [1,2,3,0]):
-        cv2.line(out_image,
-                 (int(pts[i, 0]), int(pts[i, 1])),
-                 (int(pts[j, 0]), int(pts[j, 1])),
-                 color=colors[i], thickness=1, lineType=1)
-    return out_image
-
-
-def rearrange_pts(pts):
-    # rearrange left right sequence
-    boxes = []
-    centers = []
-    for k in range(0, len(pts), 4):
-        pts_4 = pts[k:k+4,:]
-        # argsort返回排序后的原始序号
-        x_inds = np.argsort(pts_4[:, 0])
-        pt_l = np.asarray(pts_4[x_inds[:2], :])
-        pt_r = np.asarray(pts_4[x_inds[2:], :])
-        y_inds_l = np.argsort(pt_l[:,1])
-        y_inds_r = np.argsort(pt_r[:,1])
-        tl = pt_l[y_inds_l[0], :]
-        bl = pt_l[y_inds_l[1], :]
-        tr = pt_r[y_inds_r[0], :]
-        br = pt_r[y_inds_r[1], :]
-        # boxes.append([tl, tr, bl, br])
-        boxes.append(tl)
-        boxes.append(tr)
-        boxes.append(bl)
-        boxes.append(br)
-        centers.append(np.mean(pts_4, axis=0))
-    bboxes = np.asarray(boxes, np.float32)
-    # rearrange top to bottom sequence
-    centers = np.asarray(centers, np.float32)
-    sort_tb = np.argsort(centers[:,1])
-    new_bboxes = []
-    for sort_i in sort_tb:
-        new_bboxes.append(bboxes[4*sort_i, :])
-        new_bboxes.append(bboxes[4*sort_i+1, :])
-        new_bboxes.append(bboxes[4*sort_i+2, :])
-        new_bboxes.append(bboxes[4*sort_i+3, :])
-    new_bboxes = np.asarray(new_bboxes, np.float32)
-    return new_bboxes
-
-
 def processing_train(image, pts, points_num,image_h, image_w, image_s,
                      down_ratio, aug_label, img_id,full,spine_localisation_eval_dict):
     # filter pts ----------------------------------------------------
@@ -313,18 +250,6 @@ def generate_ground_truth(image,
            'normal_vector': normal_vector,
            }
     return ret
-
-# def filter_pts(pts, w, h):
-#     pts_new = []
-#     for pt in pts:
-#         if any(pt) < 0 or pt[0] > w - 1 or pt[1] > h - 1:
-#             continue
-#         else:
-#             pts_new.append(pt)
-#     return np.asarray(pts_new, np.float32)
-
-
-
 
 def spine_localisation_processing_train(image, pts, points_num,image_h, image_w, image_s, down_ratio, aug_label, img_id,itk_information, full):
     pts = np.array(pts)
