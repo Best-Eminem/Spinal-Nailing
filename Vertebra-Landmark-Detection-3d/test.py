@@ -112,15 +112,15 @@ class Network(object):
             torch.cuda.synchronize(self.device)
             #将heatmap还原为坐标
 
-            if self.mode == 'spine_localisation':
+            if self.mode == 'spine_localisation' or self.mode == 'landmark_detection':
                 hm = hm[0]
                 pts_predict = []
                 for i in range(5):
                     pts2 = self.decoder.ctdet_decode(hm[i].reshape((1, 1, int(args.input_s//self.down_ratio//self.downsize), int(args.input_h/self.down_ratio/self.downsize), int(args.input_w/self.down_ratio/self.downsize))), reg, True,down_ratio=self.down_ratio,downsize=self.downsize)
                     pts0 = pts2.copy()
                     pts0[:self.points_num, :3] *= (self.down_ratio * self.downsize)
-                    pts_now = pts0[:self.points_num, :3].tolist()[0]
-                    pts_predict.append(pts_now)
+                    pts_now = pts0[:self.points_num, :3].tolist()
+                    pts_predict.extend(pts_now)
                     # pts_now = pts0[:self.points_num, :3].tolist()[1]
                     # pts_predict.append(pts_now)
             else:

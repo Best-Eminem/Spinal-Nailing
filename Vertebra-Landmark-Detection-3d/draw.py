@@ -2,9 +2,10 @@ import numpy as np
 import cv2
 import joblib
 from matplotlib import pyplot as plt
+from PIL import Image
 import SimpleITK as sitk
 import xyz2irc_irc2xyz
-# img_ori = sitk.ReadImage('F:\\ZN-CT-nii\\data\\gt\\3.nii.gz')
+# img_ori = sitk.ReadImage('/home/gpu/Spinal-Nailing/ZN-CT-nii/data/train/3.nii.gz')
 # point = [-25.6957,-1.1312,1819.4020]
 # point_zyx = xyz2irc_irc2xyz.xyz2irc(img_ori,point)
 colors = [[0.76590096, 0.0266074, 0.9806378],
@@ -108,7 +109,7 @@ def draw_points_test(img_series,pts2):
         x_axis = int(pt[2])
 
         #tp = np.full((68,256),-1,dtype=np.float32)
-        tp = np.full((int((h-s)/2), h), -1, dtype=np.float32)
+        tp = np.full((int((h-s)//2), h), -1, dtype=np.float32)
         #tp = np.full((56, 512), -1, dtype=np.float32)
         ori_image_regress_z = img_series_a[z_axis]
         ori_image_regress_x = np.transpose(img_series_b[:, :, x_axis], (0, 1))
@@ -127,40 +128,19 @@ def draw_points_test(img_series,pts2):
             cv2.destroyAllWindows()
             exit()
 
-# #用来测试作为label的landmark位置是否准确
-# for i in range(1,28):
-#     print(i)
-#     img_id = str(i)+'.gt'
-#     data_dict = joblib.load('F:\\ZN-CT-nii\\groundtruth\\spine_localisation\\' + img_id)
-#     pts2 = data_dict['landmarks'] * 4 * 2
-#     a,b,c,d = data_dict['origin_image'].shape
-#     img_series = data_dict['origin_image'].reshape((1,a,b,c,d))
-#     draw_points_test(img_series,pts2)
-# for i in range(29,51):
-#     print(i)
-#     img_id = str(i)+'.gt'
-#     data_dict = joblib.load('F:\\ZN-CT-nii\\groundtruth\\spine_localisation\\' + img_id)
-#     pts2 = data_dict['landmarks'] * 4 * 2
-#     a,b,c,d = data_dict['origin_image'].shape
-#     img_series = data_dict['origin_image'].reshape((1,a,b,c,d))
-#     draw_points_test(img_series,pts2)
-# pts7_upsample    = [[29, 124, 184], [38, 172, 156], [42, 172, 224], [86, 176, 160], [86, 176, 212], [89, 120, 184], [130, 192, 160], [130, 188, 208], [137, 136, 180], [174, 208, 156], [174, 204, 204], [218, 220, 152], [218, 216, 200], [222, 168, 172], [73, 116, 196]]
-# pts7_upsample_gt = [[24, 120, 188], [32, 172, 156], [36, 172, 224], [84, 176, 160], [84, 176, 212], [88, 120, 184], [128, 192, 160], [128, 192, 208], [136, 136, 180], [172, 208, 156], [172, 208, 204], [212, 216, 152], [216, 216, 200], [220, 164, 172],[180, 152, 180]]
-# pts_gt_7 = [[27, 122, 188], [35, 173, 157], [37, 174, 225], [84, 178, 162], [85, 178, 214], [89, 120, 187], [128, 194, 160], [129, 193, 209], [137, 136, 182], [174, 209, 158], [175, 208, 204], [182, 153, 181], [215, 219, 154], [218, 219, 201], [222, 167, 175]]
-# pts7 = [[29, 123, 186], [38, 170, 163], [38, 170, 227], [87, 178, 162], [87, 179, 209], [85, 123, 186], [135, 196, 163], [136, 187, 201], [133, 131, 186], [175, 203, 164], [175, 203, 202], [182, 156, 178], [225, 218, 155], [224, 218, 203], [222, 163, 178]]
-# pts_gt_8 = [[28, 133, 193], [37, 202, 248], [39, 198, 143], [80, 202, 151], [80, 205, 237], [80, 127, 194], [125, 218, 156], [126, 219, 233], [129, 138, 196], [170, 235, 157], [171, 237, 228], [177, 156, 189], [216, 248, 157], [217, 253, 223], [220, 170, 189]]
-# pts8 = [[29, 131, 178], [40, 202, 242], [40, 195, 130], [79, 194, 147], [88, 211, 233], [85, 122, 194], [128, 211, 153], [128, 219, 233], [133, 139, 194], [176, 235, 156], [176, 236, 226], [181, 155, 194], [225, 250, 156], [224, 251, 218], [222, 173, 186]]
-#draw_points(img_series,pts7_upsample,pts7_upsample_gt)
-
-#pts_gt_7 = [[27, 122, 188], [35, 173, 157], [37, 174, 225], [84, 178, 162], [85, 178, 214], [89, 120, 187], [128, 194, 160], [129, 193, 209], [137, 136, 182], [174, 209, 158], [175, 208, 204], [182, 153, 181], [215, 219, 154], [218, 219, 201], [222, 167, 175]]
-#pts7 =     [[31, 125, 194], [40, 171, 163], [40, 170, 226], [88, 178, 164], [88, 176, 211], [87, 125, 187], [138, 194, 163], [137, 196, 211], [136, 137, 179], [178, 210, 154], [177, 203, 203], [184, 153, 178], [225, 217, 154], [225, 218, 203], [224, 171, 177]]
-# img_id = '10.gt'
-#data_dict = joblib.load('F:\\ZN-CT-nii\\groundtruth\\landmark_detection\\' + img_id)
-# data = joblib.load('F:\\ZN-CT-nii\\eval\\spine_localisation_eval\\' + '16.eval')
+def draw_by_matplotlib():
+    im = np.array(Image.open('/home/gpu/图片/1.jpeg'))
+    # 绘制图像
+    plt.imshow(im)
+    # 一些点
+    x = [20,40,60]
+    y = [40,80,120]
+    # 使用红色星状标记绘制点
+    plt.plot(x, y, 'r*')
+    # 绘制连接前两个点的线
+    # plot(x[:2],y[:2])
+    # 添加标题，显示绘制的图像
+    plt.title('Plotting: "empire.jpg"')
+    plt.show()
 #
-# print(data)
-# pts2 = data_dict['landmarks'] * 2
-# a,b,c,d = data_dict['input'].shape
-# for i in range(b):
-#     plt.imshow(data_dict['input'][0][i],cmap='gray')
-#     plt.show()
+# draw_by_matplotlib()

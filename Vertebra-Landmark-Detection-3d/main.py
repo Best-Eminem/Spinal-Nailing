@@ -24,9 +24,9 @@ def parse_args():
     parser.add_argument('--num_classes', type=int, default=1, help='number of classes')
     parser.add_argument('--ngpus', type=int, default=1, help='number of gpus')
     parser.add_argument('--resume', type=str, default='model_200.pth', help='weights to be resumed')
-    parser.add_argument('--phase', type=str, default='train')
-    parser.add_argument('--data_dir', type=str, default='F:\\ZN-CT-nii', help='CT data directory')
-    parser.add_argument('--model_dir', type=str, default='E:\\Spinal-Nailing\\weights_spinal', help='model data directory')
+    parser.add_argument('--phase', type=str, default='my_eval')
+    parser.add_argument('--data_dir', type=str, default='/home/gpu/Spinal-Nailing/ZN-CT-nii', help='CT data directory')
+    parser.add_argument('--model_dir', type=str, default='/home/gpu/Spinal-Nailing/weights_spinal', help='model data directory')
     parser.add_argument('--mode', type=str, default='landmark_detection', help='step 1 or 2')
     parser.add_argument('--dataset', type=str, default='spinal', help='data directory')
     args = parser.parse_args()
@@ -57,4 +57,5 @@ if __name__ == '__main__':
         # is_object.eval_three_angles(args, save=False)
     elif args.phase == 'my_eval':
         is_object = my_eval.Network(args)
-        is_object.eval(args,save = False,CT = "36.nii.gz")
+        CT_path = '/home/gpu/Spinal-Nailing/ZN-CT-nii/data/test/36.nii.gz'
+        is_object.eval(args,save = False,CT_path = CT_path)

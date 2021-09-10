@@ -11,14 +11,18 @@ pts7_upsample = np.asarray(pts7_upsample,dtype=np.float32)
 pts8_upsample_gt = np.asarray(pts8_upsample_gt,dtype=np.float32)
 pts8_upsample = np.asarray(pts8_upsample,dtype=np.float32)
 
-gap_7 = ((pts7_upsample_gt - pts7_upsample)) #* voxel_spacing
-gap_8 = ((pts8_upsample_gt - pts8_upsample)) #* voxel_spacing
+gap_7 = ((pts7_upsample_gt - pts7_upsample)) * voxel_spacing
+gap_8 = ((pts8_upsample_gt - pts8_upsample)) * voxel_spacing
 
 loss_7 = 0
 loss_8 = 0
+
+MSE_loss = 0
+print('MSE_loss :',MSE_loss)
+
 for i in range(15):
-    loss_7 += np.sqrt(np.sum(np.square(gap_7[i])))
-    loss_8 += np.sqrt(np.sum(np.square(gap_8[i])))
+    loss_7 += np.sum(np.square(gap_7[i]))
+    loss_8 += np.sum(np.square(gap_8[i]))
 
 loss_7 /= 15
 loss_8 /= 15

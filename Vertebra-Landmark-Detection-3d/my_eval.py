@@ -59,35 +59,16 @@ class Network(object):
             #将heatmap还原为坐标
         itk_img = sitk.ReadImage(CT_path)
         image_array = sitk.GetArrayFromImage(itk_img)
-        data_aug = {'eval': transform.Compose([transform.ConvertImgFloat(),  # 转为float32格式
-                                                # transform.PhotometricDistort(), #对比度，噪声，亮度
-                                                # transform.Expand(max_scale=1.5, mean=(0, 0, 0)),
-                                                # transform.RandomMirror_w(),
-                                                transform.Resize(s=400, h=512, w=512)  # Resize了点坐标和img
-                                                ])
-                    }
         image_array_section = image_array
         bottom_z = 0
-        out_image, _ = data_aug['eval'](image_array_section.copy(), np.asarray([[1,1,1]]))
+        out_image, _ = transform.Resize.resize(img = image_array_section.copy(),pts = np.asarray([[1,1,1]]),input_s=400, input_h=512, input_w=512)
         temp = 2048
-
-        # out_image = out_image / np.max(abs(out_image))  某些值过大，导致椎体区域归一化值很小
         out_image = out_image / temp
         out_image = np.asarray(out_image, np.float32)
-        intense_image = out_image.copy()
-        # intense_image[intense_image >= 0.1] += 0.2
-        intense_image[intense_image > 1] = 1
+        intense_image = out_image
         intense_image = np.reshape(intense_image, (1, 400, 512, 512))
-        out_image = np.reshape(out_image, (1, 400, 512, 512))
-
+        #缩小输入大小
         max_pool_downsize = nn.MaxPool3d(kernel_size=3, stride=2, padding=1)
-        # hm = max_pool_downsize(hm).numpy()
-        # hm = hm.reshape(hm.shape[2:])
-        # 增强hm中的landmark的像素值
-        # hm[hm>=1] +=1
-
-        # image = torch.from_numpy(image)
-        # image = max_pool_downsize(image).numpy()
         intense_image = torch.from_numpy(intense_image)
         intense_image = max_pool_downsize(intense_image)
         intense_image = max_pool_downsize(intense_image)
@@ -119,25 +100,22 @@ class Network(object):
         #pts_predict = pts_predict.tolist()
 
         img = sitk.GetArrayFromImage(itk_img)
-        origin_size = [400,512,512]
-        img_size = img.shape
+        img_size = [400,512,512]
+        origin_size = img.shape
         #将第一步的预测坐标复原到原始CT的位置
-        pts_predict[:, 0] = pts_predict[:, 0] / origin_size[0] * img_size[0]
-        pts_predict[:, 1] = pts_predict[:, 1] / origin_size[1] * img_size[1]
-        pts_predict[:, 2] = pts_predict[:, 2] / origin_size[2] * img_size[2]
+        pts_predict[:, 0] = pts_predict[:, 0] / img_size[0] * origin_size[0]
+        pts_predict[:, 1] = pts_predict[:, 1] / img_size[1] * origin_size[1]
+        pts_predict[:, 2] = pts_predict[:, 2] / img_size[2] * origin_size[2]
         pts_predict = np.asarray(pts_predict)
 
         image_array = img.copy()
 
-        data_aug = {'test': transform.Compose([transform.ConvertImgFloat(),  # 转为float32格式
-                                                transform.Resize(s=240, h=400, w=400)  # Resize了点坐标和img
-                                                ]),} # resize
         spine_localisation_eval_pts = pts_predict
         spine_localisation_eval_center = np.asarray(np.mean(pts_predict,axis=0),'int32')
 
-        bottom_z = (spine_localisation_eval_pts[0][0] - 25) if spine_localisation_eval_pts[0][0] - 25 >= 0 else 0
+        bottom_z = (spine_localisation_eval_pts[0][0] - 30) if spine_localisation_eval_pts[0][0] - 30 >= 0 else 0
         bottom_z = np.floor(bottom_z).astype(np.int32)
-        top_z = spine_localisation_eval_pts[4][0] + 25
+        top_z = spine_localisation_eval_pts[4][0] + 30
         top_z = np.ceil(top_z).astype(np.int32)
 
         # 根据预测的整个ct的中心点的x,y坐标取出原ct的一部分
@@ -150,20 +128,12 @@ class Network(object):
                                           pts_center_y + 200) if pts_center_y + 200 <= 512 else 512,
                               (pts_center_x - 200) if pts_center_x - 200 >= 0 else 0:(
                                           pts_center_x + 200) if pts_center_x + 200 <= 512 else 512]
-        out_image, _ = data_aug['test'](image_array_section.copy(), pts_predict)
-
-        min = np.min(out_image)
-        max = np.max(out_image)
+        output_image,_ = transform.Resize.resize(img = image_array_section,pts = np.asarray([[1,1,1]]),input_s=240, input_h=400, input_w=400)
         temp = 2048
-        # out_image = np.clip(out_image, a_min=0., a_max=255.)
-        # 不需要调换顺序
-        # out_image = out_image / np.max(abs(out_image))
-        out_image = out_image / temp
-        out_image = np.asarray(out_image, np.float32)
-        joblib.dump(out_image, 'F:\\ZN-CT-nii\\my_eval\\'+CT)
-        intense_image = out_image.copy()
-        intense_image[intense_image >= 0.1] += 0.2
-        intense_image[intense_image > 1] = 1
+        output_image = output_image / temp
+        output_image = np.asarray(output_image, np.float32)
+        #joblib.dump(output_image, 'F:\\ZN-CT-nii\\my_eval\\'+CT)
+        intense_image = output_image.copy()
         intense_image = np.reshape(intense_image, (1, 1,240, 400, 400))
 
         max_pool_downsize = nn.MaxPool3d(kernel_size=3, stride=2, padding=1)
@@ -174,14 +144,15 @@ class Network(object):
 
 
         #第二步骤预测
-        heads = {'hm': 1}
-
+        heads = {'hm': 5}
+        self.points_num = 8
+        self.downsize = 2
         self.model = spinal_net.SpineNet(heads=heads,
                                          pretrained=True,
                                          down_ratio=2,
                                          final_kernel=1,
                                          head_conv=256)
-        self.model = self.load_model(self.model,os.path.join(save_path, 'landmark_detection.pth'))
+        self.model = self.load_model(self.model,os.path.join(save_path, 'landmark_detection/clean/model_200.pth'))
         self.model = self.model.to(self.device)
         # 不启用 Batch Normalization 和 Dropout。
         self.model.eval()
@@ -191,18 +162,24 @@ class Network(object):
         landmark_detection_hm = landmark_detection_predict['hm']
 
         reg = 0
-        self.decoder = decoder.DecDecoder(K=30, conf_thresh=args.conf_thresh)
-        pts2 = self.decoder.ctdet_decode(landmark_detection_hm, reg, True, down_ratio=2, downsize=2)  # 17, 11
-        pts0 = pts2.copy()
+        self.decoder = decoder.DecDecoder(K=8, conf_thresh=args.conf_thresh)
 
-        pts0[:30, :3] *= (2 * 2)
-        pts_last = pts0[:30, :3].tolist()
+        landmark_detection_hm = landmark_detection_hm[0]
+        pts_last = []
+        for i in range(5):
+            pts2 = self.decoder.ctdet_decode(landmark_detection_hm[i].reshape((1, 1, 60,100,100)), reg,
+                                             True, down_ratio=self.down_ratio, downsize=self.downsize)
+            pts0 = pts2.copy()
+            pts0[:self.points_num, :3] *= (self.down_ratio * self.downsize)
+            pts_now = pts0[:self.points_num, :3].tolist()
+            pts_last.extend(pts_now)
+
         pts_last.sort(key=lambda x: (x[0], x[1], x[2]))
         pts_last = np.asarray(pts_last, 'float32')
         pts_last = np.asarray(np.round(pts_last), 'int32')
         print('pts_last: ', pts_last.tolist())
         pts_last = pts_last.tolist()
-        draw_points_test(out_image.reshape((1,1,240,400,400)), pts_last)
+        draw_points_test(output_image.reshape((240,400,400)), pts_last)
 
 
 

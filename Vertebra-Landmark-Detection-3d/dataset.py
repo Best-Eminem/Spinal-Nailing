@@ -124,7 +124,7 @@ class BaseDataset(data.Dataset):
 
 
         elif mode == 'landmark_detection':
-            eval_store_path = 'eval\\spine_localisation_eval\\' + img_id[0:-7] + '.eval'
+            eval_store_path = 'eval/spine_localisation_eval/' + img_id[0:-7] + '.eval'
 
             spine_localisation_eval_dict = joblib.load(os.path.join(self.data_dir, eval_store_path))
             data_series = processing_train(image=image,
@@ -170,7 +170,7 @@ class BaseDataset(data.Dataset):
             elif self.mode == 'landmark_detection':
                 data_dict = self.preprocess(index=index,points_num=40,full=True,mode=self.mode)
             else:
-                data_dict = joblib.load(os.path.join(self.data_dir,'\\groundtruth\\spine_segmentation\\'+ img_id))
+                data_dict = self.preprocess(index=index,points_num=0,full=True,mode=self.mode)
             #images = pre_proc.processing_test(image=self.load_image(index), input_h=self.input_h, input_w=self.input_w, input_s=self.input_s)
             input = data_dict['input']
             input = input.reshape((1, 1, self.input_s//self.downsize,self.input_h//self.downsize, self.input_w//self.downsize))
@@ -203,15 +203,15 @@ class BaseDataset(data.Dataset):
             elif self.mode == 'landmark_detection':
                 data_dict = self.preprocess(index=index,points_num=40,full=True,mode=self.mode)
             else:
-                data_dict = joblib.load(os.path.join(self.data_dir,'\\groundtruth\\spine_segmentation\\'+ img_id))
+                data_dict = self.preprocess(index=index,points_num=0,full=True,mode=self.mode)
             return data_dict
         else:
             if self.mode == 'spine_localisation':
                 data_dict = self.preprocess(index=index,points_num=5,full=True,mode=self.mode)
             elif self.mode == 'landmark_detection':
-                data_dict = joblib.load(os.path.join(self.data_dir,'\\groundtruth\\landmark_detection\\'+ img_id))
+                data_dict = self.preprocess(index=index,points_num=40,full=True,mode=self.mode)
             else:
-                data_dict = joblib.load(os.path.join(self.data_dir,'\\groundtruth\\spine_segmentation\\'+ img_id))
+                data_dict = self.preprocess(index=index,points_num=0,full=True,mode=self.mode)
             #print(1111)
             return data_dict
 

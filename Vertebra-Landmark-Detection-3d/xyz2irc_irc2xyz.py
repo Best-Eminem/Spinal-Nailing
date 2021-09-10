@@ -1,16 +1,16 @@
 import collections
 import numpy as np
 import SimpleITK as sitk
-file = sitk.ReadImage('F:\\ZN-CT-nii\\data\\train\\7.nii.gz')
-# # # 图像大小
-# # file.GetSize()
-# # # 坐标原点
-# # origin_xyz = file.GetOrigin()
-# # print(origin_xyz)
-# # # 像素间距
+# file = sitk.ReadImage('/home/gpu/Spinal-Nailing/ZN-CT-nii/data/train/45.nii.gz')
+# # # # 图像大小
+# # # file.GetSize()
+# # # # 坐标原点
+# origin_xyz = file.GetOrigin()
+# # # print(origin_xyz)
+# # # # 像素间距
 # vxSize_xyz = file.GetSpacing()
-# #print(vxSize_xyz)
-# # # 方向
+# # #print(vxSize_xyz)
+# # # # 方向
 # direction_a = file.GetDirection()
 # print(file.GetSize())
 # print(np.array(direction_a).reshape(3,3))
@@ -42,7 +42,9 @@ def xyz2irc(itkImage,coord_xyz):
     #return cri_a
     return [float(cri_a[2]), float(cri_a[1]), float(cri_a[0])]
 
-# irc = [79,232,216]
-# xyz = irc2xyz(file,irc)
+# irc = [[108 232 256], [153 232 256], [198 240 256], [244 248 256], [289 248 256]]
+# center = [198,240,256]
+# irc = [108,232,256]
+# xyz = irc2xyz(origin_xyz,vxSize_xyz,direction_a,center)
 # irc = xyz2irc(file,xyz)
 # print(1)

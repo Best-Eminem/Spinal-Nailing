@@ -329,7 +329,7 @@ def generate_ground_truth(output_img,
                           image_w,
                           img_id,
                           full,
-                          downsize,down_ratio,origin_size):
+                          downsize,down_ratio,bottom_z):
     #因为要downsize为1/2，所以要将参数大小除2取整数
     pts_2 = transform.rescale_pts(pts_2, down_ratio=down_ratio)
     hm = np.zeros((5,image_s//downsize, image_h//downsize, image_w//downsize), dtype=np.float32)
@@ -371,8 +371,9 @@ def generate_ground_truth(output_img,
     # radius = gaussian_radius((math.ceil(distance_y), math.ceil(distance_x)))
     radius = max(0, int(min_diameter)) // 2
     # 生成脊锥中心点的热图
-    for i in range(points_num):
-        hm[i] = draw_umich_gaussian(hm[i], ct_landmark_int[i], radius=radius)
+    for i in range(points_num//8):
+        for k in range(8):
+            hm[i] = draw_umich_gaussian(hm[i], ct_landmark_int[i * 8 + k], radius=radius)
 
     max_pool_downsize = nn.MaxPool3d(kernel_size=3, stride=2, padding=1)
     intense_image = output_img.copy()
@@ -385,7 +386,7 @@ def generate_ground_truth(output_img,
            'hm': hm,
            'landmarks': ct_landmark_int,
            'img_id': img_id,
-           'origin_size': origin_size
+           'bottom_z': np.ndarray(bottom_z)
            }
     return ret
 
@@ -438,11 +439,12 @@ def processing_train(image, pts, points_num,image_h, image_w, image_s,
 
         spine_localisation_eval_pts_preprocessed = []
         for i in range(len(spine_localisation_eval_pts)):
-            spine_localisation_eval_pts_preprocessed.append(irc2xyz(origin,size,direction,spine_localisation_eval_pts[i].copy()))
+            spine_localisation_eval_pts_preprocessed.append(irc2xyz(origin,spacing,direction,spine_localisation_eval_pts[i].copy()))
         spine_localisation_eval_pts_preprocessed = preprocess_landmarks(spine_localisation_eval_pts_preprocessed, sitk_transformation, size, spacing)
         spine_localisation_eval_pts_preprocessed = np.array(np.round(np.array(spine_localisation_eval_pts_preprocessed)[:, [2, 1, 0]]), dtype='int32')
 
-        spine_localisation_eval_center_preprocessed = preprocess_landmarks(irc2xyz(origin,size,direction,spine_localisation_eval_center.copy()), sitk_transformation, size, spacing)
+        spine_localisation_eval_center_preprocessed = [irc2xyz(origin,spacing,direction,spine_localisation_eval_center.copy())]
+        spine_localisation_eval_center_preprocessed = preprocess_landmarks(spine_localisation_eval_center_preprocessed, sitk_transformation, size, spacing)
         spine_localisation_eval_center_preprocessed = np.array(np.round(np.array(spine_localisation_eval_center_preprocessed)[:, [2, 1, 0]]), dtype='int32')
     else:
         preprocessed_landmarks = []
@@ -450,7 +452,7 @@ def processing_train(image, pts, points_num,image_h, image_w, image_s,
             preprocessed_landmarks.append(xyz2irc(image, ct_landmarks[i]))
         preprocessed_landmarks = np.asarray(preprocessed_landmarks)
         spine_localisation_eval_pts_preprocessed = spine_localisation_eval_pts
-        spine_localisation_eval_center_preprocessed = spine_localisation_eval_center
+        spine_localisation_eval_center_preprocessed = [spine_localisation_eval_center]
         output_image = sitk.GetArrayFromImage(image)
         output_image = output_image / 2048
 
@@ -461,15 +463,16 @@ def processing_train(image, pts, points_num,image_h, image_w, image_s,
     # spine_localisation_eval_center_preprocessed[0] += spine_localisation_bottom_z
     bo = preprocessed_landmarks[:, 0].min()
     # spine_localisation_eval_pts_preprocessed[:,0] += spine_localisation_bottom_z
-    bottom_z = (spine_localisation_eval_pts_preprocessed[0][0] - 25) if spine_localisation_eval_pts_preprocessed[0][
-                                                                            0] - 25 >= 0 else 0
+    bottom_z = (spine_localisation_eval_pts_preprocessed[0][0] - 30) if spine_localisation_eval_pts_preprocessed[0][
+                                                                            0] - 30 >= 0 else 0
     bottom_z = np.floor(bottom_z).astype(np.int32)
-    top_z = spine_localisation_eval_pts_preprocessed[4][0] + 25
+    top_z = spine_localisation_eval_pts_preprocessed[4][0] + 30
     top_z = np.ceil(top_z).astype(np.int32)
     # 所有点的z轴坐标要改变
 
     preprocessed_landmarks[:, 0] = preprocessed_landmarks[:, 0] - bottom_z
     # 根据预测的整个ct的中心点的x,y坐标取出原ct的一部分
+    spine_localisation_eval_center_preprocessed = spine_localisation_eval_center_preprocessed[0]
     pts_center_y = spine_localisation_eval_center_preprocessed[1]
     pts_center_x = spine_localisation_eval_center_preprocessed[2]
     # 所有点的x，y轴坐标要减小
@@ -483,6 +486,7 @@ def processing_train(image, pts, points_num,image_h, image_w, image_s,
                                       pts_center_x + 200) if pts_center_x + 200 <= 512 else 512]
 
     output_image,preprocessed_landmarks = transform.Resize.resize(img = image_array_section,pts = preprocessed_landmarks,input_s=image_s, input_h=image_h, input_w=image_w)
+    #print(preprocessed_landmarks)
     # if aug_label == False:
     #     draw.draw_points_test(output_image, preprocessed_landmarks)
     output_image = np.reshape(output_image, (1, image_s, image_h, image_w))
