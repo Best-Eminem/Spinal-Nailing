@@ -1,8 +1,12 @@
+import sys
+import os
+o_path = os.getcwd()
+sys.path.append(o_path)
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-import decoder
+from utils import decoder
 
 
 class RegL1Loss(nn.Module):
@@ -35,11 +39,32 @@ class RegL1Loss(nn.Module):
         loss = loss / (mask.sum() + 1e-4)
         return loss
 
+class L2Loss(nn.Module):
+    def __init__(self):
+        super(L2Loss, self).__init__()
+    def forward(self, pred, gt):
+        # diff = pred - gt
+        loss = F.mse_loss(pred, gt,reduction='sum')#/(torch.FloatTensor(2).cuda())
+        return loss
+class Sigma_loss(nn.Module):
+    def __init__(self):
+        super(Sigma_loss, self).__init__()
+    def forward(self, pred):
+        loss = torch.mean(torch.pow(pred,2)) * 0.01 *0.000001
+        return loss
+class Seg_BceLoss(nn.Module):
+    def __init__(self):
+        super(Seg_BceLoss, self).__init__()
+        self.loss = nn.BCEWithLogitsLoss()
+    def forward(self, pred, gt):
+        return self.loss(pred['msk'],gt['msk'])
 class FocalLoss(nn.Module):
   def __init__(self):
     super(FocalLoss, self).__init__()
 
   def forward(self, pred, gt):
+      #由于pred里可能会有0出现，会导致log(0)为nan，所以将所有值裁剪到不为0的区间
+      pred = torch.clamp(pred,1e-15,1)
       pos_inds = gt.eq(1).int()
       neg_inds = gt.lt(1).int()
       neg_weights = torch.pow(1 - gt, 4)
@@ -48,12 +73,23 @@ class FocalLoss(nn.Module):
 
       pos_loss = torch.log(pred) * torch.pow(1 - pred, 2) * pos_inds
       neg_loss = torch.log(1 - pred) * torch.pow(pred, 2) * neg_weights * neg_inds
-
+    #   if torch.isnan(pos_loss.sum()) or torch.isnan(neg_loss.sum()):
+    #       print('fuck nan occurs --------------------------------------')
+    #       aa_min = torch.min(pos_loss)
+    #       bb_min = torch.min(neg_loss)
+    #       aa = torch.isnan(pos_loss).int().sum()
+    #       pos_loss[torch.isnan(pos_loss)] = 0
+    #       neg_loss[torch.isnan(neg_loss)] = 0
+    #       bb = torch.isnan(neg_loss).int().sum()
+    #       pp_min = torch.min(pred)
+    #       pp_max = torch.max(pred)
       num_pos  = pos_inds.sum() + neg_inds.sum()
       pos_loss = pos_loss.sum()
       neg_loss = neg_loss.sum()
 
       loss = loss - (pos_loss + neg_loss) / num_pos
+      if torch.isnan(loss) or torch.isinf(loss):
+          print('nan occurs fuck--------------------------------------')
       return loss
 
 class Point2PlaneLoss(nn.Module):
@@ -138,6 +174,8 @@ class LossAll(torch.nn.Module):
         self.L_off = RegL1Loss()
         self.L_dis = Point2PlaneLoss()
         self.L_normal_vector = RegL1Loss()
+        self.L_L2_loss = L2Loss()
+        self.Sigma_loss = Sigma_loss()
 
         # self.L_wh =  RegL1Loss()
     def forward(self, pr_decs, gt_batch):
@@ -145,7 +183,8 @@ class LossAll(torch.nn.Module):
         hm_loss  = 0
         #若第一步输出一个hm的话，使用这个
         hm_loss = self.L_hm(pr_decs['hm'],  gt_batch['hm'])
-
+        # hm_loss = self.L_L2_loss(pr_decs['hm'],  gt_batch['hm'])
+        # sigma_loss = self.Sigma_loss(heatmap_sigamas)
         # 若第一步输出5个hm的话，使用下面这一部分
         # hm_loss += self.L_hm(pr_decs['hm1'][0][0],  gt_batch['hm'][0][0])
         # hm_loss += self.L_hm(pr_decs['hm2'][0][0], gt_batch['hm'][0][1])
@@ -158,9 +197,9 @@ class LossAll(torch.nn.Module):
         # wh_loss  = self.L_wh(pr_decs['wh'], gt_batch['reg_mask'], gt_batch['ind'], gt_batch['wh'])
         #normal_vector_loss = self.L_normal_vector(pr_decs['normal_vector'], gt_batch['reg_mask'], gt_batch['ind'], gt_batch['normal_vector'])
         #off_loss = self.L_off(pr_decs['reg'], gt_batch['reg_mask'], gt_batch['ind'], gt_batch['reg'])
-        loss_dec = hm_loss #+ off_loss + normal_vector_loss #+ point_dis_loss
+        loss_dec = hm_loss#+ off_loss + normal_vector_loss #+ point_dis_loss
         #loss_dec = point_dis_loss
-        print('hm_loss= ',loss_dec.item()) #, ' off_loss= ',off_loss.item() , ' normal_vector_loss= ',normal_vector_loss.item())
+        #print('hm_loss= ',loss_dec.item()) #, ' off_loss= ',off_loss.item() , ' normal_vector_loss= ',normal_vector_loss.item())
         return loss_dec
 
     # def backward(self,result):

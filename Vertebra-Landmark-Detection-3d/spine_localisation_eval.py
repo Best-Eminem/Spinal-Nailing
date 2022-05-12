@@ -1,9 +1,12 @@
+import sys
+import os
+o_path = os.getcwd()
+sys.path.append(o_path)
 import torch
 import numpy as np
 from models import spinal_net
-import decoder
-import os
-from dataset import BaseDataset
+from utils import decoder
+from dataset.dataset import BaseDataset
 import joblib
 import loss
 from matplotlib import pyplot as plt
@@ -20,7 +23,7 @@ class spine_localisation_eval(object):
                  }
 
         self.model = spinal_net.SpineNet(heads=heads,
-                                         pretrained=True,
+                                         pretrained=False,
                                          down_ratio=args.down_ratio,
                                          final_kernel=1,
                                          head_conv=256)
@@ -30,7 +33,8 @@ class spine_localisation_eval(object):
         self.criterion = loss.LossAll()
         self.points_num = 1 #K为特征点的最大个数
         self.down_ratio = args.down_ratio
-        self.downsize = args.down_size
+        self.down_size = args.down_size
+        self.mode = args.mode
 
     def load_model(self, model, resume):
         checkpoint = torch.load(resume, map_location=lambda storage, loc: storage)
@@ -41,25 +45,28 @@ class spine_localisation_eval(object):
 
     def eval(self, args, save):
         save_path = args.model_dir
-        self.model = self.load_model(self.model, os.path.join(save_path, 'spine_localisation/one output/clean/model_200.pth'))
+        self.model = self.load_model(self.model, os.path.join(save_path, 'spine_localisation/model_last_origin.pth'))
         self.model = self.model.to(self.device)
         #不启用 Batch Normalization 和 Dropout。
         self.model.eval()
 
         #就是dataset_module = BaseDataset
         dataset_module = self.dataset[args.dataset]
-        dsets = dataset_module(data_dir=args.data_dir,
-                               phase='spine_localisation_eval',
-                               input_s=args.input_s,
-                               input_h=args.input_h,
-                               input_w=args.input_w,
-                               down_ratio=args.down_ratio,downsize=args.down_size,
-                               mode='spine_localisation')
 
+        dsets = dataset_module(data_dir=args.data_dir,
+                                   phase='spine_localisation_eval',
+                                   input_h=args.input_h,
+                                   input_w=args.input_w,
+                                   input_s=args.input_s,
+                                   down_ratio=args.down_ratio,
+                                   down_size=args.down_size,
+                                   mode=self.mode,
+                                   sigmas=None
+                                   )
         data_loader = torch.utils.data.DataLoader(dsets,
                                                   batch_size=1,
                                                   shuffle=False,
-                                                  num_workers=1,
+                                                  num_workers=args.num_workers,
                                                   pin_memory=True)
 
 
@@ -77,7 +84,7 @@ class spine_localisation_eval(object):
             pts_gt = data_dict['landmarks'].cpu().numpy()[0]
             pts_gt = np.asarray(pts_gt, dtype=np.float32)
 
-            pts_gt *= (self.down_ratio * self.downsize)
+            pts_gt *= (self.down_ratio * self.down_size)
             # print('reg_gt: ' , reg_gt)
             # pts_gt += reg_gt
             pts_gt = pts_gt.tolist()
@@ -107,12 +114,12 @@ class spine_localisation_eval(object):
             pts_predict = []
             for i in range(5):
                 pts2 = self.decoder.ctdet_decode(hm[i].reshape((1, 1,
-                                                                int(args.input_s // self.down_ratio // self.downsize),
-                                                                int(args.input_h / self.down_ratio / self.downsize),
-                                                                int(args.input_w / self.down_ratio / self.downsize))),
-                                                 reg, True, down_ratio=self.down_ratio, downsize=self.downsize)
+                                                                int(args.input_s // self.down_ratio // self.down_size),
+                                                                int(args.input_h / self.down_ratio / self.down_size),
+                                                                int(args.input_w / self.down_ratio / self.down_size))),
+                                                 reg, True, down_ratio=self.down_ratio, down_size=self.down_size)
                 pts0 = pts2.copy()
-                pts0[:self.points_num, :3] *= (self.down_ratio * self.downsize)
+                pts0[:self.points_num, :3] *= (self.down_ratio * self.down_size)
                 pts_now = pts0[:self.points_num, :3].tolist()[0]
                 pts_predict.append(pts_now)
             print('totol pts num is {}'.format(len(pts_predict)))
@@ -132,5 +139,5 @@ class spine_localisation_eval(object):
             pts_dict = {}
             pts_dict['pts'] = pts_predict
             pts_dict['pts_center'] = pts_center
-            eval_store_path = 'eval\\spine_localisation_eval\\' + img_id[0:-7] + '.eval'
+            eval_store_path = 'eval/spine_localisation_eval/' + img_id[0:-7] + '.eval'
             joblib.dump(pts_dict, os.path.join(args.data_dir,eval_store_path))

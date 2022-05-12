@@ -35,8 +35,10 @@ class CombinationModule(nn.Module):
                                            nn.ReLU(inplace=True))
         else:
             self.up =  nn.Sequential(nn.Conv3d(c_low, c_up, kernel_size=3, padding=1, stride=1),
+                                    nn.BatchNorm3d(c_up),
                                      nn.ReLU(inplace=True))
             self.cat_conv =  nn.Sequential(nn.Conv3d(c_up*2, c_up, kernel_size=1, stride=1),
+                                           nn.BatchNorm3d(c_up),
                                            nn.ReLU(inplace=True))
 
     def forward(self, x_low, x_up):

@@ -1,0 +1,9 @@
+{
+    "python.analysis.extraPaths": [
+        "./dataset",
+        "./utils",
+        "./draw",
+        "./preprocess"
+    ],
+    "files.autoSave": "afterDelay"
+}

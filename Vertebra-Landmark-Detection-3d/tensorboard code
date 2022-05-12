@@ -1,1 +1,22 @@
-tensorboard --logdir='./spine_localisation_one'
+tensorboard --logdir='./tensorboard_log'
+# 
+#显示信息文件
+tail -f spine_localisation_1.log
+#关闭进程
+kill -9 3402584
+#服务器开端口
+/etc/rc.local
+#节约显存，使用checkpoint将网络分成几部分计算
+    input = torch.rand(1, 10, requires_grad=True)
+    layers = [nn.Linear(10, 10) for _ in range(1000)]
+    model = nn.Sequential(*layers)
+    
+    from torch.utils.checkpoint import checkpoint_sequential
+    # 分成两个部分
+    num_segments = 2
+    x = checkpoint_sequential(model, num_segments, input)
+    x.sum().backward()  # 这样就可以了
+#杀死所有进程
+killall -u usrname
+#指令  nii转dicom
+nifti2dicom -i FLAIR.nii.gz -o FLAIR_DICOM -a 123456

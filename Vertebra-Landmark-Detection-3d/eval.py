@@ -1,8 +1,11 @@
+import sys
+import os
+o_path = os.getcwd()
+sys.path.append(o_path)
 import torch
 import numpy as np
 from models import spinal_net
 import decoder
-import os
 from dataset import BaseDataset
 import time
 import cobb_evaluate
